@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { changes } from '../data/seed';
 import { getNode } from '../engine/graph';
 import { selectResult, selectStale } from '../store/selectors';
@@ -21,6 +22,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
   const setReplayIndex = useCanon((s) => s.setReplayIndex);
   const stopReplay = useCanon((s) => s.stopReplay);
   const result = useMemo(() => selectResult(changeId, edges), [changeId, edges]);
+  const navigate = useNavigate();
   const [notice, setNotice] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -112,6 +114,9 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
           }}
         >
           Publish amendment
+        </button>
+        <button className="primary" type="button" onClick={() => navigate('/draft')}>
+          Draft legal update
         </button>
         <button
           onClick={() => {
