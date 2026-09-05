@@ -12,7 +12,6 @@ import {
 const STEPS = [
   { id: 'draft', label: 'Initial draft', hint: 'passages marked' },
   { id: 'review', label: 'Legal review', hint: 'decided by a lawyer' },
-  { id: 'publish', label: 'Ready for publication', hint: 'partner signs' },
 ] as const;
 
 export function DraftUpdate() {
@@ -45,16 +44,15 @@ export function DraftUpdate() {
   const finding = draftFindings[index];
   const reviewed = Object.values(statuses).filter((s) => s !== 'open').length;
   const accepted = Object.values(statuses).filter((s) => s === 'accepted' || s === 'decided').length;
-  const activeStep = sent ? 2 : accepted === draftFindings.length ? 2 : reviewed > 0 ? 1 : 0;
+  const reviewsDone = reviewed === draftFindings.length;
+  const activeStep = reviewed > 0 ? 1 : 0;
   const matter = draftMatters.find((m) => m.id === matterId) ?? draftMatters[0];
   const status = statuses[finding.id] ?? 'open';
 
   const stepHint = useMemo(() => {
-    if (sent) return 'sent to Chen Wei Ling';
     if (activeStep === 0) return `${reviewed}/${draftFindings.length} marked`;
-    if (activeStep === 1) return `${accepted}/${draftFindings.length} decided`;
-    return 'final outward copy';
-  }, [accepted, activeStep, reviewed, sent]);
+    return `${accepted}/${draftFindings.length} decided`;
+  }, [accepted, activeStep, reviewed]);
 
   useEffect(() => {
     if (!showSent) return;
@@ -166,19 +164,12 @@ export function DraftUpdate() {
                   ? stepHint
                   : i === 0
                     ? `${reviewed}/${draftFindings.length} marked`
-                    : i === 1
-                      ? `${accepted}/${draftFindings.length} decided`
-                      : sent && i === 2
-                        ? 'sent for sign-off'
-                        : step.hint}
+                    : `${accepted}/${draftFindings.length} decided`}
               </span>
             </li>
           ))}
         </ol>
-        <div className="draft-meta">
-          <span>Acting as associate</span>
-          <strong>Both reforms are in force</strong>
-        </div>
+        <p className={`draft-pub-status ${reviewsDone ? 'ready' : ''}`}>Ready for publication</p>
       </div>
 
       <div className="draft-grid">
