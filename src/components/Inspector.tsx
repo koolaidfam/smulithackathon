@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { changes } from '../data/seed';
 import { actionLabel, actionWhy, bindingFor, parameterDelta, silentFailureCopy } from '../engine/actions';
 import { getNode, inbound, outbound } from '../engine/graph';
@@ -23,6 +24,9 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
   const disposeTask = useCanon((s) => s.disposeTask);
   const verifyTask = useCanon((s) => s.verifyTask);
   const selectNode = useCanon((s) => s.selectNode);
+  const navigate = useNavigate();
+  const isolatedWorkflowId = useCanon((s) => s.isolatedWorkflowId);
+  const setIsolated = useCanon((s) => s.isolateWorkflow);
   const result = useMemo(() => selectResult(changeId, edges), [changeId, edges]);
   const tasks = allTasks.filter((t) => t.change_id === changeId);
 
@@ -157,7 +161,9 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
               {kindLabel(node.kind)}
               {node.doc_class ? ` · ${classLabel(node.doc_class)}` : ''}
               {node.kind === 'person' ? ` · ${rankLabel(node.props.rank)}` : ''}
-              {published && asset ? ', flagged' : ''}
+              {published && asset && asset.action !== 'already_bound' && asset.action !== 'not_affected'
+                ? ', flagged'
+                : ''}
               {node.jurisdiction ? ` · ${node.jurisdiction}` : ''}
             </div>
           </div>
@@ -186,6 +192,24 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {node.kind === 'workflow' && (
+            <div>
+              <div className="itype">Isolate</div>
+              <p className="ihint">
+                Show only this workflow and the artifacts that feed it. Double clicking a workflow
+                on the graph does the same thing.
+              </p>
+              <button
+                className={isolatedWorkflowId === node.id ? '' : 'primary'}
+                onClick={() => setIsolated(isolatedWorkflowId === node.id ? null : node.id)}
+              >
+                {isolatedWorkflowId === node.id
+                  ? 'Show the whole firm'
+                  : 'Isolate this workflow'}
+              </button>
             </div>
           )}
 
@@ -220,23 +244,40 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
           )}
 
           {binding && (
-            <div>
-              <div className="itype">{binding.location}</div>
+            <div className="passage">
+              <div className="itype">Passage that no longer matches the circular</div>
+              <div className="passage-loc">{binding.location}</div>
               <p>{binding.why}</p>
-              <div className="excerpt mt-12">{binding.excerpt}</div>
-              {binding.edit_kind === 'mechanical' && binding.mechanical_edit && (
+              <div className="excerpt struck mt-12">{binding.excerpt}</div>
+              {binding.edit_kind === 'mechanical' && binding.mechanical_edit ? (
                 <>
-                  <div className="itype mt-12">Mechanical suggestion</div>
-                  <div className="excerpt">{binding.mechanical_edit}</div>
+                  <div className="itype mt-12">Recommended line. Mechanical, no judgement.</div>
+                  <div className="excerpt suggest">{binding.mechanical_edit}</div>
+                </>
+              ) : (
+                <>
+                  <div className="itype mt-12">No recommended line</div>
+                  <p>
+                    A choice exists here, so nothing is drafted. The parameter moves from S$20,000
+                    to S$5,000. The lawyer named on the task decides the wording of{' '}
+                    {binding.location}.
+                  </p>
                 </>
               )}
-              {binding.edit_kind === 'substantive' && (
-                <p className="mt-12">
-                  This is a judgement call. The brain will not draft replacement text. The parameter
-                  moves from S$20,000 to S$5,000. The lawyer named on the task decides the wording
-                  of {binding.location}.
+
+              <div className="disclaim">
+                <strong>Nothing here edits a document.</strong>
+                <p>
+                  This is a marked passage and a suggestion for a person to read. There is no button
+                  that applies a change to a contract, a filing or a client advisory, and there will
+                  not be one. An associate opens the full document, reads the whole of it in
+                  context, and redrafts it themselves.
                 </p>
-              )}
+              </div>
+
+              <button className="primary mt-12" onClick={() => navigate('/draft')}>
+                Open the full document
+              </button>
             </div>
           )}
 

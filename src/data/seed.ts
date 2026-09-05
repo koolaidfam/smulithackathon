@@ -201,6 +201,25 @@ export const nodes: FirmNode[] = [
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
+  // Workflows this amendment does not touch. A firm is always running more
+  // work than any one circular reaches, and a blast radius that covers
+  // everything is a blast radius nobody believes.
+  n('flow-ipo', 'workflow', 'IPO readiness review', 'Listing workflow', 'markets', {
+    doc_class: 'internal',
+    jurisdiction: 'SG',
+  }),
+  n('flow-vcc', 'workflow', 'VCC incorporation', 'Fund formation workflow', 'funds', {
+    doc_class: 'internal',
+    jurisdiction: 'SG',
+  }),
+  n('flow-secretarial', 'workflow', 'Board and secretarial calendar', 'Corporate housekeeping', 'corp', {
+    doc_class: 'internal',
+    jurisdiction: 'SG',
+  }),
+  n('flow-distrib', 'workflow', 'Subscription and redemption', 'Fund operations workflow', 'funds', {
+    doc_class: 'internal',
+    jurisdiction: 'SG',
+  }),
 
   n('adv-vcc', 'advisory', 'Advisory: VCC re-domiciliation', 'Client-facing note, Q1 2026', 'funds', {
     doc_class: 'internal',
@@ -362,6 +381,23 @@ const FEEDS: Array<[string, string, string]> = [
   ['flow-conflicts', 'team-markets', 'e-cf-tm'],
   ['flow-kyc', 'team-reg', 'e-kyc-tr'],
   ['flow-kyc', 'team-bank', 'e-kyc-tb'],
+  // Feeders for the untouched workflows. None of these sit downstream of
+  // MAS Notice 626, so publishing that amendment leaves them alone.
+  ['play-listing', 'flow-ipo', 'e-pl-ipo'],
+  ['doc-allotment', 'flow-ipo', 'e-al-ipo'],
+  ['doc-resolutions', 'flow-ipo', 'e-rs-ipo'],
+  ['flow-ipo', 'team-markets', 'e-ipo-tm'],
+  ['doc-vcc-const', 'flow-vcc', 'e-vc-vcc'],
+  ['doc-vcc-check', 'flow-vcc', 'e-vk-vcc'],
+  ['flow-vcc', 'team-funds', 'e-vcc-tf'],
+  ['doc-resolutions', 'flow-secretarial', 'e-rs-sec'],
+  ['doc-allotment', 'flow-secretarial', 'e-al-sec'],
+  ['flow-secretarial', 'team-markets', 'e-sec-tm'],
+  ['doc-ppm', 'flow-distrib', 'e-ppm-ds'],
+  ['doc-redemption', 'flow-distrib', 'e-rd-ds'],
+  ['doc-mandate', 'flow-distrib', 'e-md-ds'],
+  ['doc-side-letter', 'flow-distrib', 'e-sl-ds'],
+  ['flow-distrib', 'team-funds', 'e-ds-tf'],
   ['adv-vcc', 'team-funds', 'e-av-tf'],
   ['adv-aml', 'team-reg', 'e-aa-tr'],
   ['adv-aml', 'team-bank', 'e-aa-tb'],

@@ -1,13 +1,45 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { graphNodes, isConfirmed, isPropagationRelation } from '../engine/graph';
+import { getNode, graphNodes, isConfirmed, isPropagationRelation } from '../engine/graph';
+import { lastScreen } from '../engine/positions';
 import type { FirmEdge, FirmNode, NodeKind } from '../types';
 
 interface LaidOut extends FirmNode {
   x: number;
   y: number;
   z: number;
+  bx: number;
+  by: number;
+  bz: number;
   _px: number;
   _py: number;
+}
+
+/** A stable pseudo-random number per node id, so the ball never reshuffles. */
+function hashUnit(id: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+/**
+ * The firm as it stands. Teams work across each other and workflows overlap, so
+ * the artifacts and the people converge into one dense mass. Sorting pulls that
+ * mass apart along a single axis: how far a change travels from an instrument.
+ */
+function ball(nodes: LaidOut[]) {
+  const n = nodes.length;
+  nodes.forEach((node, i) => {
+    const k = i + 0.5;
+    const phi = Math.acos(1 - (2 * k) / n);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * k;
+    const radius = 190 + hashUnit(node.id, 7) * 135;
+    node.bx = radius * Math.sin(phi) * Math.cos(theta);
+    node.by = radius * Math.sin(phi) * Math.sin(theta);
+    node.bz = radius * Math.cos(phi);
+  });
 }
 
 const LAYER: Partial<Record<NodeKind, number>> = {
@@ -40,11 +72,11 @@ const COL: Partial<Record<NodeKind, string>> = {
   playbook: '#5A625F',
   workflow: '#5A625F',
   advisory: '#5A625F',
-  team: '#2F6B4F',
+  team: '#5A625F',
 };
 
 function layout(nodes: FirmNode[], edges: FirmEdge[]): { nodes: LaidOut[]; maxXZ: number; maxY: number } {
-  const laid: LaidOut[] = nodes.map((n) => ({ ...n, x: 0, y: 0, z: 0, _px: 0, _py: 0 }));
+  const laid: LaidOut[] = nodes.map((n) => ({ ...n, x: 0, y: 0, z: 0, bx: 0, by: 0, bz: 0, _px: 0, _py: 0 }));
   const groups = new Map<string, LaidOut[]>();
   for (const n of laid) {
     const g = n.kind === 'document' || n.kind === 'playbook' ? 'mid' : n.kind;
@@ -119,11 +151,13 @@ function layout(nodes: FirmNode[], edges: FirmEdge[]): { nodes: LaidOut[]; maxXZ
     }
   }
 
+  ball(laid);
+
   let maxXZ = 0;
   let maxY = 0;
   for (const n of laid) {
-    maxXZ = Math.max(maxXZ, Math.sqrt(n.x * n.x + n.z * n.z));
-    maxY = Math.max(maxY, Math.abs(n.y));
+    maxXZ = Math.max(maxXZ, Math.sqrt(n.x * n.x + n.z * n.z), Math.sqrt(n.bx * n.bx + n.bz * n.bz));
+    maxY = Math.max(maxY, Math.abs(n.y), Math.abs(n.by));
   }
   return { nodes: laid, maxXZ, maxY };
 }
@@ -175,22 +209,39 @@ function shape(
 export function BrainGraph({
   edges,
   flagged,
+  verified,
   selectedId,
   watchedSourceIds,
+  visibleIds,
+  focusId,
+  sorted = false,
   onSelect,
+  onIsolate,
 }: {
   edges: FirmEdge[];
   flagged: Set<string>;
+  verified?: Set<string>;
   selectedId: string | null;
   watchedSourceIds: string[];
+  visibleIds?: Set<string> | null;
+  focusId?: string | null;
+  sorted?: boolean;
   onSelect: (id: string | null) => void;
+  onIsolate?: (id: string | null) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flaggedRef = useRef(flagged);
+  const verifiedRef = useRef(verified ?? new Set<string>());
+  verifiedRef.current = verified ?? new Set<string>();
   const selectedRef = useRef(selectedId);
+  const sortRef = useRef(sorted ? 1 : 0);
+  const targetRef = useRef(sorted ? 1 : 0);
+  targetRef.current = sorted ? 1 : 0;
+  const focusRef = useRef(focusId ?? null);
   flaggedRef.current = flagged;
   selectedRef.current = selectedId;
+  focusRef.current = focusId ?? null;
   const state = useRef({
     yaw: 0.34,
     pitch: -0.22,
@@ -208,9 +259,10 @@ export function BrainGraph({
     const watched = new Set(watchedSourceIds);
     return graphNodes().filter((n) => {
       if (n.kind === 'source' && n.jurisdiction === 'AU' && !watched.has(n.id)) return false;
+      if (visibleIds && !visibleIds.has(n.id)) return false;
       return true;
     });
-  }, [watchedSourceIds]);
+  }, [watchedSourceIds, visibleIds]);
 
   const graphEdges = useMemo(
     () =>
@@ -251,14 +303,18 @@ export function BrainGraph({
 
     const project = (n: LaidOut) => {
       const { yaw, pitch, zoom, w, h } = state.current;
+      const t = sortRef.current;
+      const nx = n.bx + (n.x - n.bx) * t;
+      const ny = n.by + (n.y - n.by) * t;
+      const nz = n.bz + (n.z - n.bz) * t;
       const cy = Math.cos(yaw);
       const sy = Math.sin(yaw);
-      const x1 = n.x * cy - n.z * sy;
-      const z1 = n.x * sy + n.z * cy;
+      const x1 = nx * cy - nz * sy;
+      const z1 = nx * sy + nz * cy;
       const cp = Math.cos(pitch);
       const sp = Math.sin(pitch);
-      const y1 = n.y * cp - z1 * sp;
-      const z2 = n.y * sp + z1 * cp;
+      const y1 = ny * cp - z1 * sp;
+      const z2 = ny * sp + z1 * cp;
       const narrow = w < 700;
       const fit = Math.min((w * 0.44) / (laid.maxXZ * (narrow ? 0.82 : 1)), (h * (narrow ? 0.44 : 0.46)) / (laid.maxY + 30));
       const D = 1500;
@@ -282,8 +338,27 @@ export function BrainGraph({
         miny = Math.min(miny, p.y);
         maxy = Math.max(maxy, p.y);
       }
-      const ox = w / 2 - (minx + maxx) / 2;
-      const oy = h / 2 - (miny + maxy) / 2;
+      // Centre on the focus node when one is set, otherwise on the whole cloud.
+      // Pull back toward the centroid only as far as needed to keep every node on screen.
+      const cx = w / 2 - (minx + maxx) / 2;
+      const cy2 = h / 2 - (miny + maxy) / 2;
+      const focus = focusRef.current ? pts.get(focusRef.current) : undefined;
+      let ox = cx;
+      let oy = cy2;
+      if (focus) {
+        const pad = 26;
+        const fx = w / 2 - focus.x;
+        const fy = h / 2 - focus.y;
+        const fit = (target: number, centre: number, lo: number, hi: number, size: number) => {
+          if (lo + target >= pad && hi + target <= size - pad) return target;
+          const room = size - pad * 2;
+          if (hi - lo > room) return centre;
+          const clamped = Math.min(pad - lo, Math.max(size - pad - hi, target));
+          return clamped;
+        };
+        ox = fit(fx, cx, minx, maxx, w);
+        oy = fit(fy, cy2, miny, maxy, h);
+      }
       for (const p of pts.values()) {
         p.x += ox;
         p.y += oy;
@@ -298,7 +373,11 @@ export function BrainGraph({
             a,
             b,
             z: (a.z + b.z) / 2,
-            f: flaggedRef.current.has(e.src) && flaggedRef.current.has(e.dst),
+            f:
+              flaggedRef.current.has(e.src) &&
+              flaggedRef.current.has(e.dst) &&
+              !verifiedRef.current.has(e.src) &&
+              !verifiedRef.current.has(e.dst),
             hi: selectedRef.current === e.src || selectedRef.current === e.dst,
             dashed: !isConfirmed(e),
           };
@@ -337,12 +416,14 @@ export function BrainGraph({
         if (!p) continue;
         n._px = p.x;
         n._py = p.y;
-        const isF = flaggedRef.current.has(n.id);
+        lastScreen.set(n.id, { x: p.x, y: p.y });
+        const isDone = verifiedRef.current.has(n.id);
+        const isF = flaggedRef.current.has(n.id) && !isDone;
         const isSel = selectedRef.current === n.id;
         const isHov = hover === n.id;
         const base = n.kind === 'source' ? 5.4 : n.kind === 'team' ? 5 : 3.8;
         const rad = base * p.s * (isSel || isHov ? 1.5 : 1);
-        const col = isF ? '#B4331F' : (COL[n.kind] ?? '#5A625F');
+        const col = isF ? '#B4331F' : isDone ? '#2F6B4F' : (COL[n.kind] ?? '#5A625F');
         ctx.globalAlpha = isF
           ? Math.max(0.6, Math.min(1, (460 - p.z) / 760))
           : Math.max(0.32, Math.min(1, (460 - p.z) / 760));
@@ -397,7 +478,12 @@ export function BrainGraph({
     };
 
     const loop = () => {
-      if (auto && !state.current.dragging && !selectedRef.current) state.current.yaw += 0.0016;
+      // Ease toward whichever shape is asked for.
+      const gap = targetRef.current - sortRef.current;
+      if (Math.abs(gap) > 0.001) sortRef.current += gap * (reduce ? 1 : 0.075);
+      else sortRef.current = targetRef.current;
+      if (auto && !state.current.dragging && !selectedRef.current && !focusRef.current)
+        state.current.yaw += 0.0016;
       draw();
       raf = requestAnimationFrame(loop);
     };
@@ -453,6 +539,17 @@ export function BrainGraph({
       const p = pos(ev);
       onSelect(pick(p.x, p.y));
     };
+    // Double click a workflow to isolate it. Double click empty space to clear.
+    const dbl = (ev: MouseEvent) => {
+      if (!onIsolate) return;
+      const p = pos(ev);
+      const hit = pick(p.x, p.y);
+      if (!hit) {
+        onIsolate(null);
+        return;
+      }
+      if (getNode(hit)?.kind === 'workflow') onIsolate(hit);
+    };
 
     canvas.addEventListener('mousedown', down);
     window.addEventListener('mousemove', move);
@@ -461,6 +558,7 @@ export function BrainGraph({
     canvas.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('touchend', up);
     canvas.addEventListener('click', click);
+    canvas.addEventListener('dblclick', dbl);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -472,8 +570,9 @@ export function BrainGraph({
       canvas.removeEventListener('touchmove', move);
       window.removeEventListener('touchend', up);
       canvas.removeEventListener('click', click);
+      canvas.removeEventListener('dblclick', dbl);
     };
-  }, [graphEdges, laid, onSelect]);
+  }, [graphEdges, laid, onSelect, onIsolate]);
 
   return (
     <div ref={wrapRef} className="stage">

@@ -263,3 +263,156 @@ export const draftFindings: DraftFinding[] = [
     reviewerNote: 'Priya Nair or Chen Wei Ling decides the wording. The brain stops at the question.',
   },
 ];
+
+/* ------------------------------------------------------------------ *
+ * The uploaded document.
+ *
+ * A different scenario from the client advisory above: an internal
+ * precedent an associate is adding to the firm's material. Same review
+ * layout, different document, different list, different mistakes.
+ * ------------------------------------------------------------------ */
+
+export const UPLOAD_TITLE = 'engagement-letter-precedent.docx';
+
+const engagementLetterHtml = `
+<article class="pub">
+  <header class="pub-cover">
+    <p class="pub-kicker">Internal precedent</p>
+    <h1>Engagement letter, corporate client</h1>
+    <p class="pub-sub">Standard terms, anti-money-laundering schedule</p>
+    <p class="pub-date">Uploaded 5 September 2026 · Hale &amp; Tan LLP · Regulatory and Compliance</p>
+  </header>
+
+  <section class="pub-page">
+    <h2>Schedule 2. Client due diligence</h2>
+    <p>The Firm is required to identify and verify the identity of each client before establishing a business relationship, and to keep that information current for the life of the engagement.</p>
+    <p>2.1 Where the engagement involves an occasional transaction, the Firm applies customer due diligence in accordance with its onboarding procedure. ${PASS('u-threshold', 'Simplified due diligence may be applied where the occasional transaction is below S$20,000.')}</p>
+    <p>2.2 The Firm carries out due diligence in accordance with ${PASS('u-crossref', 'paragraph 6 of MAS Notice 626 (version as at 1 January 2024)')} and its internal onboarding procedure.</p>
+    <p>2.3 Records of the identification data obtained under this Schedule are retained for the period required by law after the business relationship ends.</p>
+  </section>
+
+  <section class="pub-page">
+    <h2>Schedule 2. Continued</h2>
+    <p>2.4 The client shall notify the Firm promptly of any change in its beneficial ownership.</p>
+    <p>2.5 ${PASS('u-pep', 'The Firm may rely on the client&rsquo;s own confirmation that no politically exposed person holds an interest in the client, and need not carry out further enquiry where that confirmation is given.')}</p>
+    <p>2.6 Where the Firm is unable to complete due diligence, it may decline to act or may terminate the engagement, and shall consider whether a report is required.</p>
+  </section>
+</article>
+`;
+
+const retainerHtml = `
+<article class="pub">
+  <header class="pub-cover">
+    <p class="pub-kicker">Internal precedent</p>
+    <h1>Retainer letter, individual client</h1>
+    <p class="pub-sub">Short form</p>
+    <p class="pub-date">Hale &amp; Tan LLP · Regulatory and Compliance</p>
+  </header>
+  <section class="pub-page">
+    <p>This precedent takes its due diligence schedule from the corporate engagement letter. It carries the same threshold and will inherit whatever the reviewer decides there.</p>
+  </section>
+</article>
+`;
+
+const onboardingProcedureHtml = `
+<article class="pub">
+  <header class="pub-cover">
+    <p class="pub-kicker">Procedure</p>
+    <h1>Client onboarding procedure</h1>
+    <p class="pub-sub">Cited by the uploaded precedent</p>
+    <p class="pub-date">Hale &amp; Tan LLP · Regulatory and Compliance</p>
+  </header>
+  <section class="pub-page">
+    <p>The uploaded precedent points at this procedure. The procedure is already flagged under the same amendment, so a reviewer should not fix one and leave the other.</p>
+  </section>
+</article>
+`;
+
+export const uploadMatters: DraftMatter[] = [
+  {
+    id: 'up-engagement',
+    title: 'Engagement letter precedent',
+    subtitle: 'Uploaded just now · Regulatory and Compliance',
+    flags: 3,
+    when: 'Held at upload',
+    stage: 'Not in the graph yet',
+    html: engagementLetterHtml,
+  },
+  {
+    id: 'up-retainer',
+    title: 'Retainer letter, short form',
+    subtitle: 'Takes its schedule from this precedent',
+    flags: 1,
+    when: 'In use',
+    stage: 'Will inherit the decision',
+    html: retainerHtml,
+  },
+  {
+    id: 'up-procedure',
+    title: 'Client onboarding procedure',
+    subtitle: 'Cited at clause 2.2',
+    flags: 1,
+    when: 'Already flagged',
+    stage: 'Open task with Marcus Hale',
+    html: onboardingProcedureHtml,
+  },
+];
+
+export const uploadFindings: DraftFinding[] = [
+  {
+    id: 'u-threshold',
+    title: 'Superseded threshold',
+    kind: 'mechanical',
+    location: 'Schedule 2, clause 2.1',
+    warning: 'The clause states a figure the regulator has moved.',
+    excerpt: 'Simplified due diligence may be applied where the occasional transaction is below S$20,000.',
+    proposed:
+      'Simplified due diligence may be applied where the occasional transaction is below S$5,000.',
+    citation: 'MAS Notice 626 para. 7.3, as amended 15 August 2026, in force 1 October 2026',
+    why: 'The figure follows from the amendment. Substituting it is arithmetic, not judgement.',
+    signals: [
+      {
+        title: 'This precedent is the source for other letters',
+        body: 'A precedent is copied forward. Every engagement drawn from it after commencement carries the old figure into a signed document.',
+      },
+    ],
+    reviewerNote: 'Substitute the figure, then check the retainer letter that inherits this schedule.',
+  },
+  {
+    id: 'u-crossref',
+    title: 'Frozen cross-reference',
+    kind: 'mechanical',
+    location: 'Schedule 2, clause 2.2',
+    warning: 'The clause cites a paragraph number and a version that no longer exist.',
+    excerpt: 'paragraph 6 of MAS Notice 626 (version as at 1 January 2024)',
+    proposed: 'paragraph 7 of MAS Notice 626, as amended from time to time',
+    citation: 'MAS Notice 626, consolidated 15 August 2026',
+    why: 'Pinning a clause to a dated version is what makes it go stale. Naming the instrument without the version date does not.',
+    signals: [
+      {
+        title: 'A keyword sweep would not catch this',
+        body: 'Nothing in the sentence is wrong on its face. It is wrong because the numbering moved.',
+      },
+    ],
+    reviewerNote: 'Cite the instrument, not a snapshot of it.',
+  },
+  {
+    id: 'u-pep',
+    title: 'Reliance on the client\'s own confirmation',
+    kind: 'substantive',
+    location: 'Schedule 2, clause 2.5',
+    warning: 'This clause allocates a risk decision to the client.',
+    excerpt:
+      'The Firm may rely on the client\'s own confirmation that no politically exposed person holds an interest in the client, and need not carry out further enquiry where that confirmation is given.',
+    proposed: null,
+    citation: 'MAS Notice 626, screening obligations',
+    why: 'Whether the firm can rely on a client confirmation, and in what circumstances, is a judgement about the firm\'s own exposure. No replacement wording is drafted.',
+    signals: [
+      {
+        title: 'The tightening changes the calculus, not the words',
+        body: 'The clause reads the same before and after the amendment. What changed is how defensible it is.',
+      },
+    ],
+    reviewerNote: 'A partner decides whether this reliance survives the amendment.',
+  },
+];

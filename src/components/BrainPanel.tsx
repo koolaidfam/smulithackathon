@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { changes } from '../data/seed';
-import { getNode } from '../engine/graph';
-import { selectResult, selectStale } from '../store/selectors';
+import { allNodes, getNode } from '../engine/graph';
+import { isolateWorkflow, workflowNodes } from '../engine/isolate';
+import { selectResult, selectStale, selectVerified } from '../store/selectors';
 import { useCanon } from '../store/useCanon';
 import { BrainGraph } from './BrainGraph';
+import { FeedPane } from './FeedPane';
+import { IsolatedGraph } from './IsolatedGraph';
 import { Inspector } from './Inspector';
 
 export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
@@ -17,15 +20,43 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
   const published = useCanon((s) => s.published);
   const publishAmendment = useCanon((s) => s.publishAmendment);
   const clearFlags = useCanon((s) => s.clearFlags);
+  const demoDispose = useCanon((s) => s.demoDispose);
+  const isolatedWorkflowId = useCanon((s) => s.isolatedWorkflowId);
+  const setIsolated = useCanon((s) => s.isolateWorkflow);
   const replaying = useCanon((s) => s.replaying);
   const replayIndex = useCanon((s) => s.replayIndex);
   const setReplayIndex = useCanon((s) => s.setReplayIndex);
   const stopReplay = useCanon((s) => s.stopReplay);
   const result = useMemo(() => selectResult(changeId, edges), [changeId, edges]);
+  const tasks = useCanon((s) => s.tasks);
+  const verified = useMemo(() => {
+    const done = selectVerified(tasks, changeId);
+    // A team clears once every artifact it was tagged on has been verified.
+    for (const team of result.teams) {
+      const owned = team.artifact_ids.filter((id) => {
+        const kind = getNode(id)?.kind;
+        return kind === 'document' || kind === 'playbook' || kind === 'workflow' || kind === 'advisory';
+      });
+      if (owned.length > 0 && owned.every((id) => done.has(id))) done.add(team.node_id);
+    }
+    return done;
+  }, [tasks, changeId, result]);
+  const flows = useMemo(() => workflowNodes(), []);
+  const isolated = useMemo(
+    () => (isolatedWorkflowId ? isolateWorkflow(isolatedWorkflowId, edges) : null),
+    [isolatedWorkflowId, edges],
+  );
+  const isolatedNode = isolatedWorkflowId ? getNode(isolatedWorkflowId) : null;
+  const toggleIsolate = useCallback(
+    (id: string | null) => setIsolated(id === isolatedWorkflowId ? null : id),
+    [isolatedWorkflowId, setIsolated],
+  );
   const navigate = useNavigate();
   const [notice, setNotice] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [feedOpen, setFeedOpen] = useState(true);
+  const [sorted, setSorted] = useState(false);
 
   const flagged = useMemo(() => {
     if (!published && !result.draft) {
@@ -73,16 +104,16 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
     const k = getNode(a.node_id)?.kind;
     return k === 'document' || k === 'playbook';
   }).length;
-  const flows = result.reached.filter((a) => getNode(a.node_id)?.kind === 'workflow').length;
+  const flowCount = result.reached.filter((a) => getNode(a.node_id)?.kind === 'workflow').length;
   const advs = result.reached.filter((a) => getNode(a.node_id)?.kind === 'advisory').length;
   const teamNames = result.teams.map((t) => getNode(t.node_id)?.title).filter(Boolean);
 
   const readout =
     !published && !result.draft
-      ? `${graphCount()} instruments, firm artifacts and teams mapped. Nothing flagged. Publish an amendment to walk the graph.`
+      ? `${graphCount()} mapped. Nothing flagged. Publish an amendment to walk the graph.`
       : result.draft
         ? `${change?.title}. Mapped, not flagged. ${result.draft_reason}`
-        : `${change?.title} amended. ${docs} documents and playbooks flagged, ${flows} workflows touched, ${advs} published outputs now stale, across ${teamNames.length} teams: ${teamNames.join(', ')}.`;
+        : `${change?.title} amended. ${docs} documents and playbooks flagged, ${flowCount} workflows touched, ${advs} published outputs now stale, across ${teamNames.length} teams: ${teamNames.join(', ')}.`;
 
   return (
     <div className="brain" style={fullHeight ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
@@ -115,8 +146,11 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         >
           Publish amendment
         </button>
-        <button className="primary" type="button" onClick={() => navigate('/draft')}>
-          Draft legal update
+        <button type="button" onClick={() => navigate('/draft')}>
+          Upload doc
+        </button>
+        <button className="primary" type="button" onClick={() => navigate('/publications')}>
+          Legal updates
         </button>
         <button
           onClick={() => {
@@ -126,24 +160,123 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         >
           Clear
         </button>
+        <label htmlFor="iso" className="ui">
+          Isolate a workflow
+        </label>
+        <select
+          id="iso"
+          value={isolatedWorkflowId ?? ''}
+          onChange={(e) => setIsolated(e.target.value || null)}
+        >
+          <option value="">Whole firm</option>
+          {flows.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.title}
+            </option>
+          ))}
+        </select>
+        {!feedOpen && <button onClick={() => setFeedOpen(true)}>Show the feed</button>}
         {narrow && (
           <button onClick={() => setSheet(true)}>Open inspector</button>
         )}
       </div>
       {notice && <div className="readout">{notice}</div>}
-      <div className="brainbody" style={fullHeight ? { flex: 1, minHeight: 0 } : undefined}>
-        <BrainGraph
-          edges={edges}
-          flagged={flagged}
-          selectedId={selectedNodeId}
-          watchedSourceIds={watched}
-          onSelect={selectNode}
-        />
+      <div
+        className={`brainbody ${feedOpen ? 'withfeed' : ''}`}
+        style={fullHeight ? { flex: 1, minHeight: 0 } : undefined}
+      >
+        {feedOpen && <FeedPane onClose={() => setFeedOpen(false)} />}
+        <div className="graphwrap">
+          {isolated && isolatedWorkflowId ? (
+            <IsolatedGraph
+              edges={edges}
+              nodeIds={isolated}
+              flagged={flagged}
+              verified={verified}
+              selectedId={selectedNodeId}
+              focusId={isolatedWorkflowId}
+              onSelect={selectNode}
+              onIsolate={toggleIsolate}
+            />
+          ) : (
+            <BrainGraph
+              edges={edges}
+              flagged={flagged}
+              verified={verified}
+              selectedId={selectedNodeId}
+              watchedSourceIds={watched}
+              sorted={sorted}
+              onSelect={selectNode}
+              onIsolate={toggleIsolate}
+            />
+          )}
+          {!isolated && (
+            <button className="sortbtn" type="button" onClick={() => setSorted((v) => !v)}>
+              {sorted ? 'Return' : 'Sort'}
+            </button>
+          )}
+          {published && (
+            <div className="demobox">
+              <span className="itype">Demo shortcut. A lawyer would dispose of these by hand.</span>
+              <div className="row">
+                <button
+                  type="button"
+                  disabled={!isolated}
+                  onClick={() => {
+                    const n = demoDispose(isolated);
+                    setNotice(`${n} tasks in this workflow accepted and verified.`);
+                  }}
+                >
+                  DEMO: Fix this workflow
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = demoDispose(null);
+                    setNotice(`${n} tasks across the firm accepted and verified.`);
+                  }}
+                >
+                  DEMO: Fix all workflows
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         {narrow && sheet && <div className="sheet-backdrop" onClick={() => setSheet(false)} />}
         {(!narrow || sheet) && <Inspector onClose={narrow ? () => setSheet(false) : undefined} />}
       </div>
+      {isolated && isolatedNode && (
+        <div className="isobar">
+          <span className="itype">Isolated</span>
+          <strong>{isolatedNode.title}</strong>
+          <span className="muted">
+            {isolated.size} nodes feed this workflow
+            {published
+              ? `, ${[...isolated].filter((id) => flagged.has(id)).length} reached by the amendment`
+              : ''}
+          </span>
+          {published && !flagged.has(isolatedWorkflowId as string) && (
+            <span className="muted">
+              This workflow is not reached. Any red here is a team that is in the blast radius
+              through other work.
+            </span>
+          )}
+          <button type="button" onClick={() => setIsolated(null)}>
+            Show the whole firm
+          </button>
+        </div>
+      )}
       <div className="readout" dangerouslySetInnerHTML={{ __html: emphasize(readout) }} />
       <div className="legend">
+        {isolated ? (
+          <>
+            <span>Reading left to right: instrument, template or playbook, workflow, team.</span>
+            <span className="lead-note">Red marks what the amendment reached.</span>
+            <span>A dashed line is an unconfirmed edge.</span>
+            <span className="green-note">Green is verified by a lawyer.</span>
+          </>
+        ) : (
+          <>
         <span>
           <i className="gl" style={{ background: 'var(--ink)', borderRadius: '50%' }} />
           Regulatory instrument
@@ -168,20 +301,33 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
           Client advisory
         </span>
         <span>
-          <i className="gl" style={{ background: 'var(--green)', borderRadius: '50%' }} />
+          <i className="gl" style={{ background: 'var(--soft)', borderRadius: '50%' }} />
           Team
         </span>
         <span>
           <i className="gl" style={{ background: 'var(--lead)', borderRadius: '50%' }} />
           Flagged by the amendment
         </span>
+        <span>
+          <i className="gl" style={{ background: 'var(--green)' }} />
+          Verified by a lawyer
+        </span>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 function graphCount() {
-  return '9 watched instruments, 28 firm artifacts and 4 teams';
+  // Counted from the graph rather than typed by hand, so it cannot drift.
+  const all = allNodes();
+  const instruments = all.filter((n) => n.kind === 'source').length;
+  const artifacts = all.filter((n) =>
+    ['document', 'playbook', 'workflow', 'advisory'].includes(n.kind),
+  ).length;
+  const teams = all.filter((n) => n.kind === 'team').length;
+  return `${instruments} instruments, ${artifacts} firm artifacts and ${teams} teams`;
 }
 
 function emphasize(text: string) {

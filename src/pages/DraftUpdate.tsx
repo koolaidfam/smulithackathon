@@ -1,10 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UploadGate } from '../components/UploadGate';
 import {
   SOURCE_PDF,
   SOURCE_PDF_TITLE,
+  UPLOAD_TITLE,
   draftFindings,
   draftMatters,
+  uploadFindings,
+  uploadMatters,
   type DraftStatus,
   type DraftView,
 } from '../data/draft';
@@ -15,6 +19,11 @@ const STEPS = [
 ] as const;
 
 export function DraftUpdate() {
+  // Two scenarios share this layout. A client advisory the firm is drafting,
+  // and a precedent an associate has just tried to upload.
+  const [mode, setMode] = useState<'publication' | 'upload'>('publication');
+  const matters = mode === 'upload' ? uploadMatters : draftMatters;
+  const findings = mode === 'upload' ? uploadFindings : draftFindings;
   const [matterId, setMatterId] = useState(draftMatters[0].id);
   const [index, setIndex] = useState(0);
   const [statuses, setStatuses] = useState<Record<string, DraftStatus>>({});
@@ -23,8 +32,9 @@ export function DraftUpdate() {
   const [showReview, setShowReview] = useState(true);
   const [narrow, setNarrow] = useState(false);
   const [view, setView] = useState<DraftView>('draft');
-  const [sent, setSent] = useState(false);
+  const [, setSent] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  const [showUpload, setShowUpload] = useState(true);
   const articleRef = useRef<HTMLDivElement>(null);
   const draftsRef = useRef<Record<string, string>>({});
   const seededFor = useRef<string | null>(null);
@@ -41,18 +51,18 @@ export function DraftUpdate() {
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  const finding = draftFindings[index];
+  const finding = findings[Math.min(index, findings.length - 1)];
   const reviewed = Object.values(statuses).filter((s) => s !== 'open').length;
   const accepted = Object.values(statuses).filter((s) => s === 'accepted' || s === 'decided').length;
-  const reviewsDone = reviewed === draftFindings.length;
+  const reviewsDone = reviewed === findings.length;
   const activeStep = reviewed > 0 ? 1 : 0;
-  const matter = draftMatters.find((m) => m.id === matterId) ?? draftMatters[0];
+  const matter = matters.find((m) => m.id === matterId) ?? matters[0];
   const status = statuses[finding.id] ?? 'open';
 
   const stepHint = useMemo(() => {
-    if (activeStep === 0) return `${reviewed}/${draftFindings.length} marked`;
-    return `${accepted}/${draftFindings.length} decided`;
-  }, [accepted, activeStep, reviewed]);
+    if (activeStep === 0) return `${reviewed}/${findings.length} marked`;
+    return `${accepted}/${findings.length} decided`;
+  }, [accepted, activeStep, reviewed, findings.length]);
 
   useEffect(() => {
     if (!showSent) return;
@@ -114,7 +124,7 @@ export function DraftUpdate() {
         applyProposed(articleRef.current as ParentNode);
         persistDraft();
       } else {
-        const target = draftMatters[0];
+        const target = matters[0];
         const frame = document.createElement('div');
         frame.innerHTML = draftsRef.current[target.id] ?? target.html;
         applyProposed(frame);
@@ -151,6 +161,19 @@ export function DraftUpdate() {
 
   return (
     <div className="draft">
+      {showUpload && (
+        <UploadGate
+          onClose={() => setShowUpload(false)}
+          onReview={() => {
+            setShowUpload(false);
+            setShowReview(true);
+            setMode('upload');
+            setMatterId(uploadMatters[0].id);
+            setStatuses({});
+            setIndex(0);
+          }}
+        />
+      )}
       <div className="draft-stepper">
         <Link to="/" className="draft-back">
           Back to the brain
@@ -163,24 +186,27 @@ export function DraftUpdate() {
                 {i === activeStep
                   ? stepHint
                   : i === 0
-                    ? `${reviewed}/${draftFindings.length} marked`
-                    : `${accepted}/${draftFindings.length} decided`}
+                    ? `${reviewed}/${findings.length} marked`
+                    : `${accepted}/${findings.length} decided`}
               </span>
             </li>
           ))}
         </ol>
+        <button type="button" onClick={() => setShowUpload(true)}>
+          Upload a document
+        </button>
         <p className={`draft-pub-status ${reviewsDone ? 'ready' : ''}`}>Ready for publication</p>
       </div>
 
       <div className="draft-grid">
         <aside className={`draft-matters ${showMatters ? 'open' : ''}`}>
           <div className="draft-colhead">
-            <span className="itype">Publications</span>
+            <span className="itype">{mode === 'upload' ? 'In this upload' : 'Publications'}</span>
             <button className="draft-hide" onClick={() => setShowMatters(false)}>
               Close
             </button>
           </div>
-          {draftMatters.map((item) => (
+          {matters.map((item) => (
             <button
               key={item.id}
               className={`draft-matter ${matterId === item.id ? 'on' : ''}`}
@@ -203,15 +229,17 @@ export function DraftUpdate() {
         <section className="draft-doc">
           <div className="draft-colhead">
             <button className="draft-toggle" onClick={() => setShowMatters(true)}>
-              Publications
+              {mode === 'upload' ? 'In this upload' : 'Publications'}
             </button>
             <div>
               <div className="itype">{matter.title}</div>
-              <strong>{SOURCE_PDF_TITLE}</strong>
+              <strong>{mode === 'upload' ? UPLOAD_TITLE : SOURCE_PDF_TITLE}</strong>
               <span className="muted">
-                {view === 'draft'
-                  ? ' Working draft. Click the page and type. Marked passages take a proposed line when you accept it.'
-                  : ' Source PDF on screen. Switch to the working draft to edit.'}
+                {mode === 'upload'
+                  ? ' Held at upload. Click the page and type. Marked passages take a proposed line when you accept it.'
+                  : view === 'draft'
+                    ? ' Working draft. Click the page and type. Marked passages take a proposed line when you accept it.'
+                    : ' Source PDF on screen. Switch to the working draft to edit.'}
               </span>
             </div>
             <div className="row">
@@ -222,18 +250,24 @@ export function DraftUpdate() {
               >
                 Edit the draft
               </button>
-              <button
-                type="button"
-                className={view === 'source' ? 'primary' : ''}
-                onClick={() => switchView('source')}
-              >
-                Open the source PDF
-              </button>
+              {mode === 'upload' ? (
+                <button type="button" onClick={() => setShowUpload(true)}>
+                  Why this was held
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={view === 'source' ? 'primary' : ''}
+                  onClick={() => switchView('source')}
+                >
+                  Open the source PDF
+                </button>
+              )}
               <button type="button" onClick={resetDraft}>
                 Reset the draft
               </button>
               <button className="primary" type="button" onClick={publishDraft}>
-                Publish draft
+                {mode === 'upload' ? 'Add to the graph' : 'Publish draft'}
               </button>
               <button className="draft-toggle" onClick={() => setShowReview(true)}>
                 Open the review
@@ -274,7 +308,7 @@ export function DraftUpdate() {
         <aside className={`draft-review ${showReview ? 'open' : ''}`}>
           <div className="draft-colhead">
             <span className="itype">
-              Passage {index + 1} of {draftFindings.length} · {reviewed}/{draftFindings.length} reviewed
+              Passage {index + 1} of {findings.length} · {reviewed}/{findings.length} reviewed
             </span>
             <div className="row">
               <button
@@ -286,8 +320,8 @@ export function DraftUpdate() {
               </button>
               <button
                 type="button"
-                disabled={index === draftFindings.length - 1}
-                onClick={() => setIndex((n) => Math.min(draftFindings.length - 1, n + 1))}
+                disabled={index === findings.length - 1}
+                onClick={() => setIndex((n) => Math.min(findings.length - 1, n + 1))}
               >
                 Next
               </button>

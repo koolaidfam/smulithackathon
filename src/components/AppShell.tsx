@@ -5,6 +5,7 @@ import { useCanon } from '../store/useCanon';
 
 const links = [
   { to: '/', label: 'Brain' },
+  { to: '/publications', label: 'Publications' },
   { to: '/watch', label: 'Horizon' },
 ];
 

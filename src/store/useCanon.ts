@@ -61,6 +61,7 @@ interface CanonState {
   selectedNodeId: string | null;
   inspectorTab: InspectorTab;
   published: boolean;
+  isolatedWorkflowId: string | null;
   replayIndex: number;
   replaying: boolean;
   selectChange: (id: string) => void;
@@ -71,6 +72,7 @@ interface CanonState {
   removeTrackedSite: (id: string) => void;
   publishAmendment: () => string | null;
   clearFlags: () => void;
+  isolateWorkflow: (workflowId: string | null) => void;
   disposeTask: (
     taskId: string,
     state: Extract<TaskState, 'accepted' | 'amended' | 'rejected'>,
@@ -78,6 +80,7 @@ interface CanonState {
     actorId: string,
   ) => void;
   verifyTask: (taskId: string, actorId: string) => void;
+  demoDispose: (nodeIds: Set<string> | null) => number;
   confirmEdge: (edgeId: string, actorId: string) => void;
   startReplay: () => void;
   setReplayIndex: (index: number) => void;
@@ -96,6 +99,7 @@ export const useCanon = create<CanonState>()(
       selectedNodeId: null,
       inspectorTab: 'node',
       published: false,
+      isolatedWorkflowId: null,
       replayIndex: -1,
       replaying: false,
       selectChange: (id) =>
@@ -144,6 +148,12 @@ export const useCanon = create<CanonState>()(
           ? result.draft_reason
           : null;
       },
+      isolateWorkflow: (workflowId) =>
+        set({
+          isolatedWorkflowId: workflowId,
+          selectedNodeId: workflowId ?? get().selectedNodeId,
+          inspectorTab: workflowId ? 'node' : get().inspectorTab,
+        }),
       clearFlags: () =>
         set({
           published: false,
@@ -183,6 +193,29 @@ export const useCanon = create<CanonState>()(
               : t,
           ),
         }),
+      // Demo shortcut. Accepts and verifies the open tasks so the walkthrough
+      // can move on. It records the same states a lawyer would record by hand.
+      demoDispose: (nodeIds) => {
+        const changeId = get().selectedChangeId;
+        let touched = 0;
+        const tasks = get().tasks.map((t) => {
+          if (t.change_id !== changeId) return t;
+          if (nodeIds && !nodeIds.has(t.node_id)) return t;
+          if (t.state === 'verified') return t;
+          touched += 1;
+          return {
+            ...t,
+            state: 'verified' as TaskState,
+            decided_by: t.owner_id,
+            decided_at: DEMO_NOW_ISO,
+            disposition: 'verified',
+            reason:
+              'Demo shortcut. The owner accepted the proposed action and the edit was re-checked against the document of record.',
+          };
+        });
+        set({ tasks });
+        return touched;
+      },
       confirmEdge: (edgeId, actorId) => {
         const edges = get().edges.map((e) =>
           e.id === edgeId
@@ -214,6 +247,7 @@ export const useCanon = create<CanonState>()(
           selectedNodeId: null,
           inspectorTab: 'node',
           published: false,
+          isolatedWorkflowId: null,
           replayIndex: -1,
           replaying: false,
         }),
