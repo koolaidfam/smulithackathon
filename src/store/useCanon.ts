@@ -4,6 +4,7 @@ import { DEFAULT_WATCHED, LIVE_CHANGE_ID, changes, edges as seedEdges } from '..
 import { routeTask } from '../engine/escalate';
 import { getNode, isTaskKind } from '../engine/graph';
 import { propagateById } from '../engine/propagate';
+import type { TrackedSite } from '../data/sites';
 import type { FirmEdge, InspectorTab, Task, TaskState } from '../types';
 
 const DEMO_NOW_ISO = '2026-09-05T09:00:00+08:00';
@@ -55,6 +56,7 @@ interface CanonState {
   edges: FirmEdge[];
   tasks: Task[];
   watchedSourceIds: string[];
+  trackedSites: TrackedSite[];
   selectedChangeId: string;
   selectedNodeId: string | null;
   inspectorTab: InspectorTab;
@@ -65,6 +67,8 @@ interface CanonState {
   selectNode: (id: string | null) => void;
   setInspectorTab: (tab: InspectorTab) => void;
   toggleWatch: (sourceId: string) => void;
+  addTrackedSite: (site: TrackedSite) => string | null;
+  removeTrackedSite: (id: string) => void;
   publishAmendment: () => string | null;
   clearFlags: () => void;
   disposeTask: (
@@ -87,6 +91,7 @@ export const useCanon = create<CanonState>()(
       edges: seedEdges,
       tasks: [],
       watchedSourceIds: DEFAULT_WATCHED,
+      trackedSites: [],
       selectedChangeId: LIVE_CHANGE_ID,
       selectedNodeId: null,
       inspectorTab: 'node',
@@ -110,6 +115,17 @@ export const useCanon = create<CanonState>()(
           : [...current, sourceId];
         set({ watchedSourceIds: next });
       },
+      addTrackedSite: (site) => {
+        const current = get().trackedSites ?? [];
+        const exists = current.some(
+          (s) => s.url.replace(/\/$/, '') === site.url.replace(/\/$/, ''),
+        );
+        if (exists) return 'That website is already on the horizon.';
+        set({ trackedSites: [...current, site] });
+        return null;
+      },
+      removeTrackedSite: (id) =>
+        set({ trackedSites: (get().trackedSites ?? []).filter((s) => s.id !== id) }),
       publishAmendment: () => {
         const change = changes.find((c) => c.id === get().selectedChangeId);
         if (!change) return 'No instrument is selected.';
@@ -193,6 +209,7 @@ export const useCanon = create<CanonState>()(
           edges: seedEdges,
           tasks: [],
           watchedSourceIds: DEFAULT_WATCHED,
+          trackedSites: [],
           selectedChangeId: LIVE_CHANGE_ID,
           selectedNodeId: null,
           inspectorTab: 'node',
@@ -208,6 +225,7 @@ export const useCanon = create<CanonState>()(
         tasks: s.tasks,
         selectedChangeId: s.selectedChangeId,
         watchedSourceIds: s.watchedSourceIds,
+        trackedSites: s.trackedSites,
         published: s.published,
       }),
     },
