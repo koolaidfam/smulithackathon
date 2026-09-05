@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { changes } from '../data/seed';
 import { getNode } from '../engine/graph';
 import { selectResult, selectStale } from '../store/selectors';
@@ -125,7 +124,6 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         {narrow && (
           <button onClick={() => setSheet(true)}>Open inspector</button>
         )}
-        <Link to="/watch">Watch list</Link>
       </div>
       {notice && <div className="readout">{notice}</div>}
       <div className="brainbody" style={fullHeight ? { flex: 1, minHeight: 0 } : undefined}>

@@ -5,9 +5,7 @@ import { useCanon } from '../store/useCanon';
 
 const links = [
   { to: '/', label: 'Brain' },
-  { to: '/tasks', label: 'Tasks' },
   { to: '/watch', label: 'Horizon' },
-  { to: '/parameters', label: 'Rules' },
 ];
 
 export function AppShell() {

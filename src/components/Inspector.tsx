@@ -13,12 +13,13 @@ import { ChainView } from './ChainView';
 export function Inspector({ onClose }: { onClose?: () => void }) {
   const selectedNodeId = useCanon((s) => s.selectedNodeId);
   const changeId = useCanon((s) => s.selectedChangeId);
-  const tab = useCanon((s) => s.inspectorTab);
+  const tab = useCanon((s) =>
+    (s.inspectorTab as string) === 'coverage' ? 'node' : s.inspectorTab,
+  );
   const setTab = useCanon((s) => s.setInspectorTab);
   const edges = useCanon((s) => s.edges);
   const allTasks = useCanon((s) => s.tasks);
   const published = useCanon((s) => s.published);
-  const confirmEdge = useCanon((s) => s.confirmEdge);
   const disposeTask = useCanon((s) => s.disposeTask);
   const verifyTask = useCanon((s) => s.verifyTask);
   const selectNode = useCanon((s) => s.selectNode);
@@ -41,9 +42,9 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
     <aside className={`inspector ${onClose ? 'open' : ''}`}>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <div className="row">
-          {(['node', 'tasks', 'teams', 'coverage'] as const).map((id) => (
+          {(['node', 'tasks', 'teams'] as const).map((id) => (
             <button key={id} className={tab === id ? 'primary' : ''} onClick={() => setTab(id)}>
-              {id === 'node' ? 'Selected' : id === 'tasks' ? 'Tasks' : id === 'teams' ? 'Teams' : 'Coverage'}
+              {id === 'node' ? 'Selected' : id === 'tasks' ? 'Tasks' : 'Teams'}
             </button>
           ))}
         </div>
@@ -117,44 +118,6 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
             );
           })}
           {result.teams.length === 0 && <p className="ihint">No teams flagged yet. Publish an amendment.</p>}
-        </div>
-      )}
-
-      {tab === 'coverage' && (
-        <div className="stack">
-          <p className="ihint">
-            A missed edge produces a confident all-clear, which is worse than no tool.
-          </p>
-          {result.clean.map((item) => (
-            <article key={item.node_id} className="card" style={{ padding: 14 }}>
-              <div className="itype">Stayed current</div>
-              <h3>{getNode(item.node_id)?.title}</h3>
-              <p>{item.reason}</p>
-              <button className="mt-12" onClick={() => selectNode(item.node_id)}>
-                Open this document
-              </button>
-            </article>
-          ))}
-          {result.coverage.map((item) => {
-            const edge = item.proposed_edge_id
-              ? edges.find((e) => e.id === item.proposed_edge_id)
-              : undefined;
-            return (
-              <article key={item.node_id} className="card" style={{ padding: 14 }}>
-                <div className="itype">
-                  Unmapped near-miss
-                  {item.confidence != null ? ` · suggested ${Math.round(item.confidence * 100)}%` : ''}
-                </div>
-                <h3>{getNode(item.node_id)?.title}</h3>
-                <p>{item.reason}</p>
-                {edge && !edge.confirmed_by && (
-                  <button className="primary mt-12" onClick={() => confirmEdge(edge.id, 'person-marcus')}>
-                    Confirm the feeds edge
-                  </button>
-                )}
-              </article>
-            );
-          })}
         </div>
       )}
 

@@ -317,6 +317,7 @@ section.block { padding: 48px 0; border-bottom: 1px solid var(--rule); }
 
 .workspace {
   min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: 1fr;
 }
@@ -372,7 +373,7 @@ footer.site {
   .top-nav, .brand-sub { display: none; }
   .tabbar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     border-top: 1px solid var(--rule);
     background: var(--stone);
     padding-bottom: var(--safe-bottom);

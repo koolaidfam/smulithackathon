@@ -151,4 +151,4 @@ export interface PropagationResult {
   discovery_order: string[];
 }
 
-export type InspectorTab = 'node' | 'tasks' | 'coverage' | 'teams';
+export type InspectorTab = 'node' | 'tasks' | 'teams';
