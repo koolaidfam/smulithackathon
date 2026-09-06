@@ -9,7 +9,6 @@ import { classLabel, kindLabel, rankLabel, stateLabel } from '../lib/labels';
 import { selectResult } from '../store/selectors';
 import { useCanon } from '../store/useCanon';
 import type { TaskState } from '../types';
-import { ChainView } from './ChainView';
 
 export function Inspector({ onClose }: { onClose?: () => void }) {
   const selectedNodeId = useCanon((s) => s.selectedNodeId);
@@ -57,7 +56,7 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
 
       {tab === 'tasks' && (
         <div className="stack">
-          <div className="itype">{published ? `${tasks.length} routed tasks` : 'Publish an amendment to route work.'}</div>
+          <div className="itype">{published ? `${tasks.length} routed tasks` : 'Refresh to route work.'}</div>
           {tasks.map((t) => {
             const doc = getNode(t.node_id);
             const owner = getNode(t.owner_id);
@@ -121,7 +120,7 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
               </article>
             );
           })}
-          {result.teams.length === 0 && <p className="ihint">No teams flagged yet. Publish an amendment.</p>}
+          {result.teams.length === 0 && <p className="ihint">No teams flagged yet. Refresh to walk the graph.</p>}
         </div>
       )}
 
@@ -130,8 +129,8 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
           <h3>Inspector</h3>
           <div className="itype">Nothing selected</div>
           <p className="ihint">
-            Click a node to see what it depends on and what depends on it. Publishing an amendment
-            walks the graph outward from the instrument and flags everything downstream.
+            Click a node to see what it depends on and what depends on it. Refresh walks the graph
+            outward from the selected instrument and flags everything downstream.
           </p>
           {delta && change && (
             <div className="mt-16">
@@ -183,7 +182,7 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
           )}
           {downs.length > 0 && (
             <div>
-              <div className="itype">Feeds</div>
+              <div className="itype">Feed into</div>
               <ul className="ilist">
                 {downs.map((e) => (
                   <li key={e.id}>
@@ -199,8 +198,8 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
             <div>
               <div className="itype">Isolate</div>
               <p className="ihint">
-                Show only this workflow and the artifacts that feed it. Double clicking a workflow
-                on the graph does the same thing.
+                Show only this project and the artifacts that feed into it. Double clicking a
+                project on the graph does the same thing.
               </p>
               <button
                 className={isolatedWorkflowId === node.id ? '' : 'primary'}
@@ -208,7 +207,7 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
               >
                 {isolatedWorkflowId === node.id
                   ? 'Show the whole firm'
-                  : 'Isolate this workflow'}
+                  : 'Isolate this project'}
               </button>
             </div>
           )}
@@ -227,13 +226,6 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
 
           {asset && (
             <>
-              <div>
-                <div className="itype">Why this artifact is reached</div>
-                <p className="ihint">
-                  Affectedness comes from stored edges. This chain is the only reason the brain can flag it.
-                </p>
-                <ChainView chain={asset.chain} />
-              </div>
               <div>
                 <div className="itype">Action from document class</div>
                 <h3>{actionLabel(asset.action)}</h3>

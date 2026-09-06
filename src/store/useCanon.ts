@@ -62,6 +62,10 @@ interface CanonState {
   inspectorTab: InspectorTab;
   published: boolean;
   isolatedWorkflowId: string | null;
+  amendedNodeIds: string[];
+  /** Land on the sorted view once, after a draft has been sent. */
+  sortOnReturn: boolean;
+  resetCount: number;
   replayIndex: number;
   replaying: boolean;
   selectChange: (id: string) => void;
@@ -73,6 +77,8 @@ interface CanonState {
   publishAmendment: () => string | null;
   clearFlags: () => void;
   isolateWorkflow: (workflowId: string | null) => void;
+  markAmended: (nodeId: string) => void;
+  setSortOnReturn: (on: boolean) => void;
   disposeTask: (
     taskId: string,
     state: Extract<TaskState, 'accepted' | 'amended' | 'rejected'>,
@@ -100,6 +106,9 @@ export const useCanon = create<CanonState>()(
       inspectorTab: 'node',
       published: false,
       isolatedWorkflowId: null,
+      amendedNodeIds: [],
+      sortOnReturn: false,
+      resetCount: 0,
       replayIndex: -1,
       replaying: false,
       selectChange: (id) =>
@@ -153,6 +162,15 @@ export const useCanon = create<CanonState>()(
           isolatedWorkflowId: workflowId,
           selectedNodeId: workflowId ?? get().selectedNodeId,
           inspectorTab: workflowId ? 'node' : get().inspectorTab,
+        }),
+      // An amended artifact is no longer stale and not yet signed off. It sits
+      // between the two, and the graph says so.
+      setSortOnReturn: (on) => set({ sortOnReturn: on }),
+      markAmended: (nodeId) =>
+        set({
+          amendedNodeIds: get().amendedNodeIds.includes(nodeId)
+            ? get().amendedNodeIds
+            : [...get().amendedNodeIds, nodeId],
         }),
       clearFlags: () =>
         set({
@@ -239,6 +257,7 @@ export const useCanon = create<CanonState>()(
       stopReplay: () => set({ replaying: false, replayIndex: -1 }),
       resetDemo: () =>
         set({
+          resetCount: get().resetCount + 1,
           edges: seedEdges,
           tasks: [],
           watchedSourceIds: DEFAULT_WATCHED,
@@ -248,6 +267,8 @@ export const useCanon = create<CanonState>()(
           inspectorTab: 'node',
           published: false,
           isolatedWorkflowId: null,
+          amendedNodeIds: [],
+          sortOnReturn: false,
           replayIndex: -1,
           replaying: false,
         }),
@@ -261,6 +282,7 @@ export const useCanon = create<CanonState>()(
         watchedSourceIds: s.watchedSourceIds,
         trackedSites: s.trackedSites,
         published: s.published,
+        amendedNodeIds: s.amendedNodeIds,
       }),
     },
   ),

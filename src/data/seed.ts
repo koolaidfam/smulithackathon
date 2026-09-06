@@ -185,30 +185,30 @@ export const nodes: FirmNode[] = [
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-launch', 'workflow', 'Sub-fund launch', 'Transaction workflow', 'funds', {
+  n('flow-launch', 'workflow', 'Sub-fund launch', 'Transaction project', 'funds', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-filing', 'workflow', 'Annual regulatory filing', 'Compliance workflow', 'aml', {
+  n('flow-filing', 'workflow', 'Annual regulatory filing', 'Compliance project', 'aml', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-conflicts', 'workflow', 'Matter opening and conflicts', 'Intake workflow', 'corp', {
+  n('flow-conflicts', 'workflow', 'Matter opening and conflicts', 'Intake project', 'corp', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-kyc', 'workflow', 'Periodic KYC refresh', 'Ongoing AML workflow', 'aml', {
+  n('flow-kyc', 'workflow', 'Periodic KYC refresh', 'Ongoing AML project', 'aml', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
   // Workflows this amendment does not touch. A firm is always running more
   // work than any one circular reaches, and a blast radius that covers
   // everything is a blast radius nobody believes.
-  n('flow-ipo', 'workflow', 'IPO readiness review', 'Listing workflow', 'markets', {
+  n('flow-ipo', 'workflow', 'IPO readiness review', 'Listing project', 'markets', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-vcc', 'workflow', 'VCC incorporation', 'Fund formation workflow', 'funds', {
+  n('flow-vcc', 'workflow', 'VCC incorporation', 'Fund formation project', 'funds', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
@@ -216,7 +216,7 @@ export const nodes: FirmNode[] = [
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),
-  n('flow-distrib', 'workflow', 'Subscription and redemption', 'Fund operations workflow', 'funds', {
+  n('flow-distrib', 'workflow', 'Subscription and redemption', 'Fund operations project', 'funds', {
     doc_class: 'internal',
     jurisdiction: 'SG',
   }),

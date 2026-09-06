@@ -8,6 +8,7 @@ import { useCanon } from '../store/useCanon';
 import { BrainGraph } from './BrainGraph';
 import { FeedPane } from './FeedPane';
 import { IsolatedGraph } from './IsolatedGraph';
+import { UploadGate } from './UploadGate';
 import { Inspector } from './Inspector';
 
 export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
@@ -21,6 +22,10 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
   const publishAmendment = useCanon((s) => s.publishAmendment);
   const clearFlags = useCanon((s) => s.clearFlags);
   const demoDispose = useCanon((s) => s.demoDispose);
+  const resetCount = useCanon((s) => s.resetCount);
+  const amendedIds = useCanon((s) => s.amendedNodeIds);
+  const sortOnReturn = useCanon((s) => s.sortOnReturn);
+  const setSortOnReturn = useCanon((s) => s.setSortOnReturn);
   const isolatedWorkflowId = useCanon((s) => s.isolatedWorkflowId);
   const setIsolated = useCanon((s) => s.isolateWorkflow);
   const replaying = useCanon((s) => s.replaying);
@@ -29,6 +34,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
   const stopReplay = useCanon((s) => s.stopReplay);
   const result = useMemo(() => selectResult(changeId, edges), [changeId, edges]);
   const tasks = useCanon((s) => s.tasks);
+  const amended = useMemo(() => new Set(amendedIds), [amendedIds]);
   const verified = useMemo(() => {
     const done = selectVerified(tasks, changeId);
     // A team clears once every artifact it was tagged on has been verified.
@@ -46,7 +52,6 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
     () => (isolatedWorkflowId ? isolateWorkflow(isolatedWorkflowId, edges) : null),
     [isolatedWorkflowId, edges],
   );
-  const isolatedNode = isolatedWorkflowId ? getNode(isolatedWorkflowId) : null;
   const toggleIsolate = useCallback(
     (id: string | null) => setIsolated(id === isolatedWorkflowId ? null : id),
     [isolatedWorkflowId, setIsolated],
@@ -57,6 +62,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
   const [sheet, setSheet] = useState(false);
   const [feedOpen, setFeedOpen] = useState(true);
   const [sorted, setSorted] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
 
   const flagged = useMemo(() => {
     if (!published && !result.draft) {
@@ -72,6 +78,22 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
     if (replaying) return new Set(result.discovery_order.slice(0, Math.max(0, replayIndex + 1)));
     return selectStale(result, published, -1);
   }, [published, replaying, replayIndex, result]);
+
+  // Coming back from a sent draft, show the sorted firm once.
+  useEffect(() => {
+    if (!sortOnReturn) return;
+    setSorted(true);
+    setSortOnReturn(false);
+  }, [sortOnReturn, setSortOnReturn]);
+
+  // Reset demo puts the view back the way a judge first sees it.
+  useEffect(() => {
+    if (resetCount === 0) return;
+    setSorted(false);
+    setFeedOpen(true);
+    setNotice(null);
+    setSheet(false);
+  }, [resetCount]);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1279px)');
@@ -110,19 +132,21 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
 
   const readout =
     !published && !result.draft
-      ? `${graphCount()} mapped. Nothing flagged. Publish an amendment to walk the graph.`
+      ? `${graphCount()} mapped. Nothing flagged. Refresh to walk the graph from the selected instrument.`
       : result.draft
         ? `${change?.title}. Mapped, not flagged. ${result.draft_reason}`
-        : `${change?.title} amended. ${docs} documents and playbooks flagged, ${flowCount} workflows touched, ${advs} published outputs now stale, across ${teamNames.length} teams: ${teamNames.join(', ')}.`;
+        : `${change?.title} amended. ${docs} documents and playbooks flagged, ${flowCount} projects touched, ${advs} published outputs now stale, across ${teamNames.length} teams: ${teamNames.join(', ')}.`;
 
   return (
     <div className="brain" style={fullHeight ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
       <div className="brainbar">
+        {/* What the firm does with documents sits on the left. */}
         <label htmlFor="src" className="ui">
           Amend an instrument
         </label>
         <select
           id="src"
+          aria-label="Amend an instrument"
           value={changeId}
           onChange={(e) => {
             selectChange(e.target.value);
@@ -137,16 +161,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
             </option>
           ))}
         </select>
-        <button
-          className="primary"
-          onClick={() => {
-            const msg = publishAmendment();
-            setNotice(msg);
-          }}
-        >
-          Publish amendment
-        </button>
-        <button type="button" onClick={() => navigate('/draft')}>
+        <button type="button" onClick={() => setShowUpload(true)}>
           Upload doc
         </button>
         <button className="primary" type="button" onClick={() => navigate('/publications')}>
@@ -160,26 +175,54 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         >
           Clear
         </button>
-        <label htmlFor="iso" className="ui">
-          Isolate a workflow
-        </label>
-        <select
-          id="iso"
-          value={isolatedWorkflowId ?? ''}
-          onChange={(e) => setIsolated(e.target.value || null)}
-        >
-          <option value="">Whole firm</option>
-          {flows.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.title}
-            </option>
-          ))}
-        </select>
         {!feedOpen && <button onClick={() => setFeedOpen(true)}>Show the feed</button>}
+
+        {/* What the firm does with the view sits on the right. */}
+        <div className="brainbar-right">
+          <button
+            className="primary"
+            onClick={() => {
+              const msg = publishAmendment();
+              setNotice(msg);
+            }}
+          >
+            Refresh
+          </button>
+          {isolated && (
+            <button type="button" onClick={() => setIsolated(null)}>
+              Show the whole firm
+            </button>
+          )}
+          <label htmlFor="iso" className="ui">
+            Isolate a project
+          </label>
+          <select
+            id="iso"
+            aria-label="Isolate a project"
+            value={isolatedWorkflowId ?? ''}
+            onChange={(e) => setIsolated(e.target.value || null)}
+          >
+            <option value="">Whole firm</option>
+            {flows.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
+        </div>
         {narrow && (
           <button onClick={() => setSheet(true)}>Open inspector</button>
         )}
       </div>
+      {showUpload && (
+        <UploadGate
+          onClose={() => setShowUpload(false)}
+          onReview={() => {
+            setShowUpload(false);
+            navigate('/draft?doc=upload');
+          }}
+        />
+      )}
       {notice && <div className="readout">{notice}</div>}
       <div
         className={`brainbody ${feedOpen ? 'withfeed' : ''}`}
@@ -193,6 +236,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
               nodeIds={isolated}
               flagged={flagged}
               verified={verified}
+              amended={amended}
               selectedId={selectedNodeId}
               focusId={isolatedWorkflowId}
               onSelect={selectNode}
@@ -203,6 +247,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
               edges={edges}
               flagged={flagged}
               verified={verified}
+              amended={amended}
               selectedId={selectedNodeId}
               watchedSourceIds={watched}
               sorted={sorted}
@@ -224,10 +269,10 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
                   disabled={!isolated}
                   onClick={() => {
                     const n = demoDispose(isolated);
-                    setNotice(`${n} tasks in this workflow accepted and verified.`);
+                    setNotice(`${n} tasks in this project accepted and verified.`);
                   }}
                 >
-                  DEMO: Fix this workflow
+                  DEMO: Fix this project
                 </button>
                 <button
                   type="button"
@@ -236,7 +281,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
                     setNotice(`${n} tasks across the firm accepted and verified.`);
                   }}
                 >
-                  DEMO: Fix all workflows
+                  DEMO: Fix all projects
                 </button>
               </div>
             </div>
@@ -245,34 +290,16 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         {narrow && sheet && <div className="sheet-backdrop" onClick={() => setSheet(false)} />}
         {(!narrow || sheet) && <Inspector onClose={narrow ? () => setSheet(false) : undefined} />}
       </div>
-      {isolated && isolatedNode && (
-        <div className="isobar">
-          <span className="itype">Isolated</span>
-          <strong>{isolatedNode.title}</strong>
-          <span className="muted">
-            {isolated.size} nodes feed this workflow
-            {published
-              ? `, ${[...isolated].filter((id) => flagged.has(id)).length} reached by the amendment`
-              : ''}
-          </span>
-          {published && !flagged.has(isolatedWorkflowId as string) && (
-            <span className="muted">
-              This workflow is not reached. Any red here is a team that is in the blast radius
-              through other work.
-            </span>
-          )}
-          <button type="button" onClick={() => setIsolated(null)}>
-            Show the whole firm
-          </button>
-        </div>
+      {!isolated && (
+        <div className="readout" dangerouslySetInnerHTML={{ __html: emphasize(readout) }} />
       )}
-      <div className="readout" dangerouslySetInnerHTML={{ __html: emphasize(readout) }} />
       <div className="legend">
         {isolated ? (
           <>
-            <span>Reading left to right: instrument, template or playbook, workflow, team.</span>
+            <span>Reading left to right: instrument, template or playbook, project, team.</span>
             <span className="lead-note">Red marks what the amendment reached.</span>
             <span>A dashed line is an unconfirmed edge.</span>
+            <span className="amber-note">Amber is amended and waiting on a reviewer.</span>
             <span className="green-note">Green is verified by a lawyer.</span>
           </>
         ) : (
@@ -291,7 +318,7 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
         </span>
         <span>
           <i className="gl" style={{ background: 'var(--soft)', clipPath: 'polygon(50% 0,100% 100%,0 100%)' }} />
-          Workflow
+          Project
         </span>
         <span>
           <i
@@ -301,12 +328,23 @@ export function BrainPanel({ fullHeight = false }: { fullHeight?: boolean }) {
           Client advisory
         </span>
         <span>
-          <i className="gl" style={{ background: 'var(--soft)', borderRadius: '50%' }} />
+          <i
+            className="gl"
+            style={{
+              background: 'transparent',
+              border: '1.5px solid var(--soft)',
+              borderRadius: '50%',
+            }}
+          />
           Team
         </span>
         <span>
           <i className="gl" style={{ background: 'var(--lead)', borderRadius: '50%' }} />
           Flagged by the amendment
+        </span>
+        <span>
+          <i className="gl" style={{ background: 'var(--ochre)' }} />
+          Amended, pending review
         </span>
         <span>
           <i className="gl" style={{ background: 'var(--green)' }} />

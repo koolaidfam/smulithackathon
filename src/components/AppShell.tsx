@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { changes } from '../data/seed';
 import { daysUntil } from '../lib/dates';
 import { useCanon } from '../store/useCanon';
@@ -12,6 +12,7 @@ const links = [
 export function AppShell() {
   const selectedChangeId = useCanon((s) => s.selectedChangeId);
   const resetDemo = useCanon((s) => s.resetDemo);
+  const navigate = useNavigate();
   const change = changes.find((c) => c.id === selectedChangeId) ?? changes[0];
   const days = daysUntil(change.in_force_at);
   const count =
@@ -21,8 +22,7 @@ export function AppShell() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">Canon</span>
-          <span className="brand-sub">The company brain</span>
+          <span className="brand-mark">Jarvis</span>
         </div>
         <nav className="top-nav" aria-label="Primary">
           {links.map((l) => (
@@ -35,7 +35,14 @@ export function AppShell() {
           <div className="countdown">
             <strong>{count}</strong>
           </div>
-          <button onClick={resetDemo}>Reset demo</button>
+          <button
+            onClick={() => {
+              resetDemo();
+              navigate('/');
+            }}
+          >
+            Reset demo
+          </button>
         </div>
       </header>
       <Outlet />

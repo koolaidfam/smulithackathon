@@ -194,6 +194,18 @@ function shape(
     ctx.fill();
     return;
   }
+  if (kind === 'team') {
+    // A ring, so a practice group never reads as another grey document.
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.15, 0, Math.PI * 2);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
@@ -210,6 +222,7 @@ export function BrainGraph({
   edges,
   flagged,
   verified,
+  amended,
   selectedId,
   watchedSourceIds,
   visibleIds,
@@ -221,6 +234,7 @@ export function BrainGraph({
   edges: FirmEdge[];
   flagged: Set<string>;
   verified?: Set<string>;
+  amended?: Set<string>;
   selectedId: string | null;
   watchedSourceIds: string[];
   visibleIds?: Set<string> | null;
@@ -234,6 +248,8 @@ export function BrainGraph({
   const flaggedRef = useRef(flagged);
   const verifiedRef = useRef(verified ?? new Set<string>());
   verifiedRef.current = verified ?? new Set<string>();
+  const amendedRef = useRef(amended ?? new Set<string>());
+  amendedRef.current = amended ?? new Set<string>();
   const selectedRef = useRef(selectedId);
   const sortRef = useRef(sorted ? 1 : 0);
   const targetRef = useRef(sorted ? 1 : 0);
@@ -408,7 +424,14 @@ export function BrainGraph({
 
       const order = [...laid.nodes].sort((a, b) => (pts.get(b.id)?.z ?? 0) - (pts.get(a.id)?.z ?? 0));
       const labelBoxes: number[][] = [];
-      const labelQueue: Array<{ n: LaidOut; p: ReturnType<typeof project>; rad: number; isF: boolean; pri: number }> = [];
+      const labelQueue: Array<{
+        n: LaidOut;
+        p: ReturnType<typeof project>;
+        rad: number;
+        isF: boolean;
+        isPending: boolean;
+        pri: number;
+      }> = [];
       const anyFlag = flaggedRef.current.size > 0;
 
       for (const n of order) {
@@ -418,12 +441,19 @@ export function BrainGraph({
         n._py = p.y;
         lastScreen.set(n.id, { x: p.x, y: p.y });
         const isDone = verifiedRef.current.has(n.id);
-        const isF = flaggedRef.current.has(n.id) && !isDone;
+        const isPending = !isDone && amendedRef.current.has(n.id);
+        const isF = flaggedRef.current.has(n.id) && !isDone && !isPending;
         const isSel = selectedRef.current === n.id;
         const isHov = hover === n.id;
         const base = n.kind === 'source' ? 5.4 : n.kind === 'team' ? 5 : 3.8;
         const rad = base * p.s * (isSel || isHov ? 1.5 : 1);
-        const col = isF ? '#B4331F' : isDone ? '#2F6B4F' : (COL[n.kind] ?? '#5A625F');
+        const col = isF
+          ? '#B4331F'
+          : isPending
+            ? '#A67A16'
+            : isDone
+              ? '#2F6B4F'
+              : (COL[n.kind] ?? '#5A625F');
         ctx.globalAlpha = isF
           ? Math.max(0.6, Math.min(1, (460 - p.z) / 760))
           : Math.max(0.32, Math.min(1, (460 - p.z) / 760));
@@ -436,13 +466,15 @@ export function BrainGraph({
           ctx.lineWidth = 1;
           ctx.stroke();
         }
-        const showLabel = isSel || isHov || (anyFlag ? isF : n.kind === 'source' || n.kind === 'team');
+        const showLabel =
+          isSel || isHov || (anyFlag ? isF || isPending : n.kind === 'source' || n.kind === 'team');
         if (showLabel) {
           labelQueue.push({
             n,
             p,
             rad,
             isF,
+            isPending,
             pri: isSel || isHov ? -1e9 : p.z,
           });
         }
@@ -468,8 +500,14 @@ export function BrainGraph({
           }
           if (clash && !forced) return;
           labelBoxes.push([bx, by, tw, fs * 1.4]);
-          ctx.fillStyle = q.isF ? '#B4331F' : q.n.kind === 'source' || forced ? '#1B2021' : '#5A625F';
-          ctx.globalAlpha = q.isF
+          ctx.fillStyle = q.isF
+            ? '#B4331F'
+            : q.isPending
+              ? '#A67A16'
+              : q.n.kind === 'source' || forced
+                ? '#1B2021'
+                : '#5A625F';
+          ctx.globalAlpha = q.isF || q.isPending
             ? Math.max(0.85, Math.min(1, (460 - q.p.z) / 700))
             : Math.max(0.55, Math.min(1, (460 - q.p.z) / 700));
           ctx.fillText(q.n.title, bx, q.p.y + 3.5);

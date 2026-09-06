@@ -9,7 +9,7 @@ export function kindLabel(kind: NodeKind): string {
     case 'playbook':
       return 'Playbook';
     case 'workflow':
-      return 'Workflow';
+      return 'Project';
     case 'advisory':
       return 'Client facing or internal publication';
     case 'team':

@@ -22,7 +22,7 @@ const COLUMN: Partial<Record<NodeKind, number>> = {
 const COLUMN_LABEL = [
   'Instruments',
   'Templates and playbooks',
-  'Workflows',
+  'Projects',
   'Client advisories',
   'Teams',
 ];
@@ -31,6 +31,7 @@ const INK = '#1B2021';
 const SOFT = '#5A625F';
 const LEAD = '#B4331F';
 const GREEN = '#2F6B4F';
+const AMBER = '#A67A16';
 
 interface Placed extends FirmNode {
   x: number;
@@ -231,6 +232,7 @@ export function IsolatedGraph({
   nodeIds,
   flagged,
   verified,
+  amended,
   selectedId,
   focusId,
   onSelect,
@@ -240,6 +242,7 @@ export function IsolatedGraph({
   nodeIds: Set<string>;
   flagged: Set<string>;
   verified: Set<string>;
+  amended: Set<string>;
   selectedId: string | null;
   focusId: string | null;
   onSelect: (id: string | null) => void;
@@ -253,6 +256,8 @@ export function IsolatedGraph({
   // restarting the entrance animation.
   const flaggedRef = useRef(flagged);
   const verifiedRef = useRef(verified);
+  const amendedRef = useRef(amended);
+  amendedRef.current = amended;
   const selectedRef = useRef(selectedId);
   verifiedRef.current = verified;
   flaggedRef.current = flagged;
@@ -450,11 +455,20 @@ export function IsolatedGraph({
       for (const n of placed) {
         const p = at(n);
         const isDone = verifiedRef.current.has(n.id);
-        const isFlagged = !isDone && flaggedRef.current.has(n.id);
+        const isPending = !isDone && amendedRef.current.has(n.id);
+        const isFlagged = !isDone && !isPending && flaggedRef.current.has(n.id);
         const isSel = selectedRef.current === n.id;
         const isFocus = focusId === n.id;
         const mark = n.list ? listSize : size;
-        const col = isFlagged ? LEAD : isDone ? GREEN : n.kind === 'source' ? INK : SOFT;
+        const col = isFlagged
+          ? LEAD
+          : isPending
+            ? AMBER
+            : isDone
+              ? GREEN
+              : n.kind === 'source'
+                ? INK
+                : SOFT;
         ctx.globalAlpha = alphaFor(n);
 
         if (isFocus || isSel) {
@@ -480,7 +494,7 @@ export function IsolatedGraph({
         }
 
         ctx.font = `${isFocus ? 13 : n.list ? 11.5 : 12}px Archivo, system-ui, sans-serif`;
-        ctx.fillStyle = isFlagged ? LEAD : isDone ? GREEN : isFocus ? INK : SOFT;
+        ctx.fillStyle = isFlagged ? LEAD : isPending ? AMBER : isDone ? GREEN : isFocus ? INK : SOFT;
         if (n.list) {
           ctx.textAlign = 'left';
           // Clip to the gap before the next column so nothing runs into it.

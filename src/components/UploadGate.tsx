@@ -3,6 +3,7 @@ import { draftFindings } from '../data/draft';
 import { parameterDelta } from '../engine/actions';
 import { changes } from '../data/seed';
 import { formatDate } from '../lib/dates';
+import { useCanon } from '../store/useCanon';
 
 /**
  * The upload gate.
@@ -17,36 +18,53 @@ import { formatDate } from '../lib/dates';
  */
 type Phase = 'idle' | 'working' | 'blocked' | 'accepted' | 'overridden';
 
-const STEPS = [
-  'Uploading the file',
-  'Extracting the text',
-  'Matching against the watched instruments',
-  'Checking the parameters it depends on',
+// Each step carries its own duration. A check that takes the same time for
+// every stage reads as a progress bar with nothing behind it.
+const STEPS: Array<{ label: string; ms: number }> = [
+  { label: 'Uploading the file', ms: 1400 },
+  { label: 'Extracting the text', ms: 1300 },
+  { label: 'Reading the clause structure', ms: 1100 },
+  { label: 'Matching against the watched instruments', ms: 1900 },
+  { label: 'Checking the parameters it depends on', ms: 1700 },
 ];
+
+const TOTAL_MS = STEPS.reduce((sum, s) => sum + s.ms, 0);
 
 export function UploadGate({ onClose, onReview }: { onClose: () => void; onReview: () => void }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [file, setFile] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [reason, setReason] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const change = changes[0];
+  const watched = useCanon((s) => s.watchedSourceIds).length;
   const delta = parameterDelta(change.parameter_id);
   const hits = draftFindings.filter((f) => f.kind === 'mechanical').slice(0, 2);
 
   useEffect(() => {
     if (phase !== 'working') return;
     if (step >= STEPS.length) {
-      const t = window.setTimeout(() => setPhase('blocked'), 420);
+      const t = window.setTimeout(() => setPhase('blocked'), 700);
       return () => window.clearTimeout(t);
     }
-    const t = window.setTimeout(() => setStep((n) => n + 1), 620);
+    const t = window.setTimeout(() => setStep((n) => n + 1), STEPS[step].ms);
     return () => window.clearTimeout(t);
   }, [phase, step]);
+
+  // The bar moves on its own clock, so it creeps through a long step instead
+  // of sitting still and then jumping.
+  useEffect(() => {
+    if (phase !== 'working') return;
+    const started = performance.now();
+    const id = window.setInterval(() => setElapsed(performance.now() - started), 90);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
   function take(name: string | undefined) {
     setFile(name ?? 'engagement-letter-precedent.docx');
     setStep(0);
+    setElapsed(0);
     setPhase('working');
   }
 
@@ -89,15 +107,18 @@ export function UploadGate({ onClose, onReview }: { onClose: () => void; onRevie
             <div className="itype">Checking</div>
             <h3>{file}</h3>
             <ol className="gate-steps">
-              {STEPS.map((label, i) => (
-                <li key={label} className={i < step ? 'done' : i === step ? 'on' : ''}>
-                  {label}
+              {STEPS.map((s, i) => (
+                <li key={s.label} className={i < step ? 'done' : i === step ? 'on' : ''}>
+                  {s.label}
                 </li>
               ))}
             </ol>
             <div className="gate-bar">
-              <span style={{ width: `${Math.min(100, (step / STEPS.length) * 100)}%` }} />
+              <span style={{ width: `${Math.min(99, (elapsed / TOTAL_MS) * 100)}%` }} />
             </div>
+            <p className="muted gate-count">
+              Checked against {watched} instruments on the horizon
+            </p>
           </>
         )}
 

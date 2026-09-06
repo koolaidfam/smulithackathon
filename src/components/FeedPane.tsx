@@ -77,7 +77,7 @@ export function FeedPane({ onClose }: { onClose?: () => void }) {
               <div className="feed-body">
                 <p className="muted">{change.summary}</p>
                 <div className="itype mt-12">
-                  Workflows this reaches ({flows.length})
+                  Projects this reaches ({flows.length})
                 </div>
                 <ul className="feed-flows">
                   {flows.map((id) => (

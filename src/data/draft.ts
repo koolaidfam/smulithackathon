@@ -22,7 +22,8 @@ export interface DraftFinding {
   proposed: string | null;
   citation: string;
   why: string;
-  signals: { title: string; body: string }[];
+  /** The words in the instrument that make this passage wrong. */
+  sourceQuote: { instrument: string; para: string; text: string };
   reviewerNote: string;
 }
 
@@ -190,12 +191,12 @@ export const draftFindings: DraftFinding[] = [
       'The CMS class exemption took effect on 15 June 2026. The revised 13O and 13U conditions apply to new awards approved on or after 1 August 2026.',
     citation: 'MAS SFO class exemption, 15 June 2026 · MAS 13O/13U circular, 31 July 2026',
     why: 'The two instruments commence on different days. Naming both dates follows from the gazettal. No judgement.',
-    signals: [
-      {
-        title: 'Readers will apply the tax circular too early',
-        body: 'A single date next to two reforms is how a neat opening sentence hardcodes the wrong commencement.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS SFO class exemption',
+      para: 'Paragraph 2, commencement',
+      text:
+        'This exemption takes effect on 15 June 2026. The revised conditions for the section 13O and 13U schemes are set out in the circular of 31 July 2026 and apply to awards approved on or after 1 August 2026.',
+    },
     reviewerNote: 'Keep each date next to the instrument it belongs to.',
   },
   {
@@ -210,16 +211,12 @@ export const draftFindings: DraftFinding[] = [
       'AUM below S$250 million: at least S$200,000. AUM of S$250 million to below S$2 billion: at least S$500,000. AUM of S$2 billion or more: at least S$1 million.',
     citation: 'MAS 13O/13U circular, 31 July 2026, awards from 1 August 2026',
     why: 'The figures are discrete parameters. Replacing them follows from the circular with no judgement.',
-    signals: [
-      {
-        title: 'Looks current on the page',
-        body: 'The sentence is fluent and still cites real tiers. A busy reviewer can miss that S$50 million and S$100 million are the old cut-offs.',
-      },
-      {
-        title: 'The example already uses the new math',
-        body: 'The next paragraph says an S$80 million fund now spends S$200,000. That only holds under the revised bands.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS 13O/13U circular of 31 July 2026',
+      para: 'Annex A, minimum annual business spending',
+      text:
+        'A fund with assets under management below S$100 million shall incur minimum annual business spending of at least S$300,000. A fund with assets under management of S$100 million or more shall incur at least S$1 million.',
+    },
     reviewerNote: 'A partner still decides whether this sentence goes in the outward note.',
   },
   {
@@ -234,12 +231,12 @@ export const draftFindings: DraftFinding[] = [
       'From 1 August 2026, the 5% cap on physical investment precious metals is removed. Qualifying gold, silver and platinum may be treated as designated investments without that limit.',
     citation: 'MAS 13O/13U circular, 31 July 2026',
     why: 'Removal of a stated percentage cap is a discrete parameter change. The replacement names the date and the lift. No judgement.',
-    signals: [
-      {
-        title: 'Copied from the previous house note',
-        body: 'The 5% sentence was true in 2025. House voice makes it easy to reprint as if it were still the rule.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS 13O/13U circular of 31 July 2026',
+      para: 'Annex B, designated investments',
+      text:
+        'Physical investment precious metals are not designated investments for the purposes of the schemes. Income derived from them is not covered by the exemption.',
+    },
     reviewerNote: 'Keep the commencement date next to the lift of the cap.',
   },
   {
@@ -254,12 +251,12 @@ export const draftFindings: DraftFinding[] = [
     citation:
       'MAS 13O/13U circular, 31 July 2026 · the circular applies to new awards approved on or after 1 August 2026',
     why: 'The model will not draft replacement text. Show the parameter delta, cite the circular, and name the lawyer who decides.',
-    signals: [
-      {
-        title: 'Easy to overclaim',
-        body: 'A tidy closing sentence that tells every existing award-holder they have already moved looks helpful and may be wrong for their file.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS Notice 626',
+      para: 'Paragraph 7.3, as amended 15 August 2026',
+      text:
+        'Where the occasional transaction is below S$5,000, a bank may perform simplified customer due diligence, subject to paragraph 7.4. This paragraph takes effect on 1 October 2026.',
+    },
     reviewerNote: 'Priya Nair or Chen Wei Ling decides the wording. The brain stops at the question.',
   },
 ];
@@ -370,12 +367,12 @@ export const uploadFindings: DraftFinding[] = [
       'Simplified due diligence may be applied where the occasional transaction is below S$5,000.',
     citation: 'MAS Notice 626 para. 7.3, as amended 15 August 2026, in force 1 October 2026',
     why: 'The figure follows from the amendment. Substituting it is arithmetic, not judgement.',
-    signals: [
-      {
-        title: 'This precedent is the source for other letters',
-        body: 'A precedent is copied forward. Every engagement drawn from it after commencement carries the old figure into a signed document.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS Notice 626',
+      para: 'Paragraph 7.3, as amended 15 August 2026',
+      text:
+        'Where the occasional transaction is below S$5,000, a bank may perform simplified customer due diligence, subject to paragraph 7.4. This paragraph takes effect on 1 October 2026.',
+    },
     reviewerNote: 'Substitute the figure, then check the retainer letter that inherits this schedule.',
   },
   {
@@ -388,12 +385,12 @@ export const uploadFindings: DraftFinding[] = [
     proposed: 'paragraph 7 of MAS Notice 626, as amended from time to time',
     citation: 'MAS Notice 626, consolidated 15 August 2026',
     why: 'Pinning a clause to a dated version is what makes it go stale. Naming the instrument without the version date does not.',
-    signals: [
-      {
-        title: 'A keyword sweep would not catch this',
-        body: 'Nothing in the sentence is wrong on its face. It is wrong because the numbering moved.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS Notice 626',
+      para: 'Consolidated text of 15 August 2026',
+      text:
+        'The obligations formerly set out in paragraph 6 are renumbered as paragraph 7. References in other documents to paragraph 6 are to be read as references to paragraph 7.',
+    },
     reviewerNote: 'Cite the instrument, not a snapshot of it.',
   },
   {
@@ -407,12 +404,12 @@ export const uploadFindings: DraftFinding[] = [
     proposed: null,
     citation: 'MAS Notice 626, screening obligations',
     why: 'Whether the firm can rely on a client confirmation, and in what circumstances, is a judgement about the firm\'s own exposure. No replacement wording is drafted.',
-    signals: [
-      {
-        title: 'The tightening changes the calculus, not the words',
-        body: 'The clause reads the same before and after the amendment. What changed is how defensible it is.',
-      },
-    ],
+    sourceQuote: {
+      instrument: 'MAS Notice 626',
+      para: 'Paragraph 8, politically exposed persons',
+      text:
+        'A bank shall have appropriate risk management systems to determine whether a customer or beneficial owner is a politically exposed person. Screening shall not be satisfied by customer declaration alone.',
+    },
     reviewerNote: 'A partner decides whether this reliance survives the amendment.',
   },
 ];

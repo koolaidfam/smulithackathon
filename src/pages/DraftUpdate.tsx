@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { SendDraft } from '../components/SendDraft';
 import { UploadGate } from '../components/UploadGate';
+import { useCanon } from '../store/useCanon';
 import {
   SOURCE_PDF,
   SOURCE_PDF_TITLE,
@@ -13,6 +15,9 @@ import {
   type DraftView,
 } from '../data/draft';
 
+/** The graph node each scenario amends, and where to land afterwards. */
+const AMENDED_ON_PUBLICATION = 'adv-aml';
+const AMENDED_ON_UPLOAD = 'doc-template';
 const STEPS = [
   { id: 'draft', label: 'Initial draft', hint: 'passages marked' },
   { id: 'review', label: 'Legal review', hint: 'decided by a lawyer' },
@@ -21,10 +26,20 @@ const STEPS = [
 export function DraftUpdate() {
   // Two scenarios share this layout. A client advisory the firm is drafting,
   // and a precedent an associate has just tried to upload.
-  const [mode, setMode] = useState<'publication' | 'upload'>('publication');
+  const navigate = useNavigate();
+  const markAmended = useCanon((s) => s.markAmended);
+  const isolate = useCanon((s) => s.isolateWorkflow);
+  const setSortOnReturn = useCanon((s) => s.setSortOnReturn);
+  const [params] = useSearchParams();
+  const fromUpload = params.get('doc') === 'upload';
+  const [mode, setMode] = useState<'publication' | 'upload'>(
+    fromUpload ? 'upload' : 'publication',
+  );
   const matters = mode === 'upload' ? uploadMatters : draftMatters;
   const findings = mode === 'upload' ? uploadFindings : draftFindings;
-  const [matterId, setMatterId] = useState(draftMatters[0].id);
+  const [matterId, setMatterId] = useState(
+    fromUpload ? uploadMatters[0].id : draftMatters[0].id,
+  );
   const [index, setIndex] = useState(0);
   const [statuses, setStatuses] = useState<Record<string, DraftStatus>>({});
   const [note, setNote] = useState('');
@@ -34,11 +49,10 @@ export function DraftUpdate() {
   const [view, setView] = useState<DraftView>('draft');
   const [, setSent] = useState(false);
   const [showSent, setShowSent] = useState(false);
-  const [showUpload, setShowUpload] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
   const articleRef = useRef<HTMLDivElement>(null);
   const draftsRef = useRef<Record<string, string>>({});
   const seededFor = useRef<string | null>(null);
-  const closeSentRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 899px)');
@@ -59,6 +73,21 @@ export function DraftUpdate() {
   const matter = matters.find((m) => m.id === matterId) ?? matters[0];
   const status = statuses[finding.id] ?? 'open';
 
+  const mailBody = useMemo(
+    () =>
+      [
+        'Marcus,',
+        '',
+        `${matter.title} has been reviewed against MAS Notice 626 as amended on 15 August 2026.`,
+        `${accepted} of ${findings.length} marked passages carry a proposed line, which I have taken. The rest are judgement calls and are noted in the document for you.`,
+        '',
+        'Nothing has been published. The draft is attached as it stands and waits on your sign-off.',
+        '',
+        'Jamie',
+      ].join('\n'),
+    [matter.title, accepted, findings.length],
+  );
+
   const stepHint = useMemo(() => {
     if (activeStep === 0) return `${reviewed}/${findings.length} marked`;
     return `${accepted}/${findings.length} decided`;
@@ -66,7 +95,6 @@ export function DraftUpdate() {
 
   useEffect(() => {
     if (!showSent) return;
-    closeSentRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowSent(false);
     };
@@ -133,8 +161,17 @@ export function DraftUpdate() {
     } else {
       persistDraft();
     }
-    setStatuses((prev) => ({ ...prev, [finding.id]: next }));
+    const decided = { ...statuses, [finding.id]: next };
+    setStatuses(decided);
     setNote('');
+    // Move to the next passage that still needs a look, so the reviewer is
+    // never left staring at one they have just disposed of.
+    const nextIndex = findings.findIndex(
+      (f, i) => i > index && (decided[f.id] ?? 'open') === 'open',
+    );
+    const anyOpen = findings.findIndex((f) => (decided[f.id] ?? 'open') === 'open');
+    const target = nextIndex >= 0 ? nextIndex : anyOpen;
+    if (target >= 0) setIndex(target);
   }
 
   function switchView(next: DraftView) {
@@ -155,8 +192,23 @@ export function DraftUpdate() {
 
   function publishDraft() {
     persistDraft();
-    setSent(true);
     setShowSent(true);
+  }
+
+  /**
+   * The send is the end of this task. The artifact stops being stale, becomes
+   * amended and pending a reviewer, and the reviewer is put back where the
+   * work lives rather than at the whole firm.
+   */
+  function afterSend() {
+    setSent(true);
+    setShowSent(false);
+    markAmended(mode === 'upload' ? AMENDED_ON_UPLOAD : AMENDED_ON_PUBLICATION);
+    // Land on the sorted firm, where projects, advisories and teams are all
+    // in view, rather than on the unsorted ball.
+    isolate(null);
+    setSortOnReturn(true);
+    navigate('/');
   }
 
   return (
@@ -353,12 +405,11 @@ export function DraftUpdate() {
           </div>
 
           <div className="draft-signal">
-            <div className="itype">Signal. Why this can slip past a busy reviewer.</div>
-            {finding.signals.map((s) => (
-              <p key={s.title}>
-                <strong>{s.title}.</strong> {s.body}
-              </p>
-            ))}
+            <div className="itype">From the circular</div>
+            <p className="quote-cite">
+              {finding.sourceQuote.instrument} · {finding.sourceQuote.para}
+            </p>
+            <blockquote className="quote">{finding.sourceQuote.text}</blockquote>
           </div>
 
           <div className="draft-block">
@@ -404,32 +455,12 @@ export function DraftUpdate() {
       </div>
 
       {showSent && (
-        <div className="draft-modal-backdrop" onClick={() => setShowSent(false)}>
-          <div
-            className="draft-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="draft-sent-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="itype">Publication routing</p>
-            <h2 id="draft-sent-title">Sent to the partner</h2>
-            <p>
-              {matter.title} has been sent to Chen Wei Ling for sign-off. The outward note is not
-              published until she signs.
-            </p>
-            <div className="row mt-12">
-              <button
-                ref={closeSentRef}
-                className="primary"
-                type="button"
-                onClick={() => setShowSent(false)}
-              >
-                Return to the draft
-              </button>
-            </div>
-          </div>
-        </div>
+        <SendDraft
+          title={`${matter.title} · marked for review`}
+          summary={mailBody}
+          onClose={() => setShowSent(false)}
+          onSent={afterSend}
+        />
       )}
     </div>
   );

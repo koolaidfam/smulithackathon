@@ -85,12 +85,6 @@ h3 { font-family: var(--ui); font-size: 14px; font-weight: 600; letter-spacing: 
   font-size: 22px;
   letter-spacing: -0.02em;
 }
-.brand-sub {
-  font-family: var(--ui);
-  font-size: 12.5px;
-  color: var(--soft);
-  letter-spacing: 0.06em;
-}
 
 .top-nav { display: flex; gap: 4px; flex: 1; }
 .top-nav a, .tabbar a {
@@ -666,7 +660,7 @@ footer.site {
 
 @media (max-width: 899px) {
   :root { --tabbar-h: calc(56px + var(--safe-bottom)); }
-  .top-nav, .brand-sub { display: none; }
+  .top-nav { display: none; }
   .tabbar {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -744,20 +738,6 @@ footer.site {
 
 .legend .lead-note { color: var(--lead); }
 
-.isobar {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 16px;
-  border-top: 1px solid var(--rule);
-  background: var(--paper);
-  font-family: var(--ui);
-}
-.isobar .itype { margin-bottom: 0; }
-.isobar strong { font-family: var(--serif); font-size: 16px; font-weight: 500; }
-.isobar .muted { font-size: 13px; }
-.isobar button { margin-left: auto; }
 
 /* Horizon feed, left of the graph. */
 .brainbody.withfeed { grid-template-columns: 280px minmax(0, 1fr) 300px; }
@@ -990,8 +970,247 @@ footer.site {
 .gate-steps li.done::before { background: var(--green); border-color: var(--green); }
 
 .gate-bar { height: 3px; background: var(--stone); overflow: hidden; }
-.gate-bar span { display: block; height: 100%; background: var(--ink); transition: width 380ms ease; }
+.gate-bar span { display: block; height: 100%; background: var(--ink); transition: width 140ms linear; }
 
 .gate-override { margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 12px; }
 .gate-override summary { cursor: pointer; font-size: 13px; color: var(--soft); }
 .gate-override .ihint { margin-top: 8px; }
+
+.gate-count { margin-top: 10px; font-size: 12.5px; }
+
+/* The toolbar has two ends. Document actions left, view controls right. */
+.brainbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1279px) {
+  .brainbar-right { margin-left: 0; }
+  /* The selects keep their aria-labels, so the visible ones can go. */
+  .brainbar > label.ui,
+  .brainbar-right label.ui { display: none; }
+  /* The feed drawer clears the toolbar even when it wraps to two rows. */
+  .feed { top: calc(var(--header-h) + var(--safe-top) + 108px); }
+}
+
+.legend .amber-note { color: var(--ochre); }
+
+/* From the circular. */
+.quote-cite { font-family: var(--ui); font-size: 12px; color: var(--soft); margin: 0 0 8px; }
+.quote {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--ink);
+  background: #fff;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* The send window. */
+.gate.mail { width: min(640px, 100%); }
+.mail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.mail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--rule);
+  padding: 7px 0;
+}
+.mail-row > span { width: 58px; color: var(--soft); font-size: 12.5px; }
+.mail-row input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-family: var(--ui);
+  font-size: 14px;
+  padding: 2px 0;
+}
+.mail-row input:focus { outline: none; }
+.mail-toggle { font-size: 12px; }
+.mail-body {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  padding: 8px 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.55;
+  resize: vertical;
+}
+.mail-body:focus { outline: none; }
+.mail-note { border-top: 1px solid var(--rule); padding-top: 10px; }
+.mail-foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.mail-attach { margin-left: auto; font-size: 12.5px; }
+
+.gate.mail-status { width: min(380px, 100%); text-align: center; }
+.mail-status h3 { margin-top: 14px; }
+.mail-plane { height: 54px; position: relative; overflow: hidden; }
+.mail-envelope {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 26px;
+  height: 18px;
+  margin-left: -13px;
+  border: 1.5px solid var(--ink);
+  animation: mail-fly 1.2s ease-in infinite;
+}
+.mail-envelope::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-top: 1.5px solid var(--ink);
+  transform: skewY(20deg);
+  transform-origin: top left;
+  height: 9px;
+}
+@keyframes mail-fly {
+  0% { transform: translate(-60px, 12px) scale(0.8); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(70px, -14px) scale(0.9); opacity: 0; }
+}
+.mail-tick-path {
+  stroke-dasharray: 34;
+  stroke-dashoffset: 34;
+  animation: mail-tick 520ms ease-out forwards;
+}
+@keyframes mail-tick { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-envelope { animation: none; }
+  .mail-tick-path { animation: none; stroke-dashoffset: 0; }
+}
+
+/* The people directory read from the document library. */
+.dir {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font-family: var(--ui);
+  /* A firm has more people than fit on a screen. The list scrolls in place. */
+  max-height: 360px;
+  overflow-y: auto;
+}
+.dir-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.6fr 0.9fr 1.2fr 0.5fr;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+.dir-row:last-child { border-bottom: 0; }
+.dir-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--stone);
+  color: var(--soft);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+}
+.dir-name { font-family: var(--serif); font-size: 15px; }
+.dir-mail { color: var(--soft); overflow-wrap: anywhere; }
+.dir-num { text-align: right; }
+.chip.dir-team {
+  margin: 0;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--soft);
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+/* A list that grows as you add to it. */
+.collapse-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  font-family: var(--ui);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@media (max-width: 899px) {
+  .dir-row { grid-template-columns: 1fr 1fr; }
+  .dir-row > .dir-num, .dir-head { display: none; }
+}
+
+/* Assigning lawyers by name. Every rule here is explicit, so the row cannot
+   fall back to running the three fields together. */
+.pick { position: relative; margin-top: 8px; }
+.pick-chosen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.pick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--ui);
+  font-size: 13px;
+  line-height: 1.2;
+}
+.pick-chip.static { padding-right: 12px; border-color: var(--rule); color: var(--soft); }
+.pick-chip > button {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--soft);
+  cursor: pointer;
+}
+.pick-chip > button:hover { color: var(--lead); }
+.pick-input {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  font-family: var(--ui);
+  font-size: 14px;
+}
+.pick-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 0 10px 24px rgba(27, 32, 33, 0.14);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.pick-list > li { list-style: none; margin: 0; padding: 0; }
+.pick-list > li + li { border-top: 1px solid var(--rule); }
+.pick-list > li > button {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  margin: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.pick-list > li > button:hover { background: var(--stone); }
+.pick-name { flex: 0 0 30%; font-family: var(--serif); font-size: 15px; color: var(--ink); }
+.pick-rank { flex: 0 0 22%; font-family: var(--ui); font-size: 12.5px; color: var(--soft); }
+.pick-mail { flex: 1 1 auto; font-family: var(--ui); font-size: 12.5px; color: var(--soft); overflow-wrap: anywhere; }
+
+@media (max-width: 899px) {
+  .pick-list > li > button { flex-direction: column; gap: 2px; }
+  .pick-name, .pick-rank, .pick-mail { flex: 0 0 auto; }
+}
